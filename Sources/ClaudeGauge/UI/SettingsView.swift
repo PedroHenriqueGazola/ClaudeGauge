@@ -1,5 +1,7 @@
+import AppKit
 import ServiceManagement
 import SwiftUI
+import UserNotifications
 
 @MainActor
 struct SettingsView: View {
@@ -10,7 +12,9 @@ struct SettingsView: View {
   @AppStorage("notifyAt75") private var notifyAt75 = true
   @AppStorage("notifyAt90") private var notifyAt90 = true
   @AppStorage("notifyAt95") private var notifyAt95 = true
+  @AppStorage("notifyOnTurnEnd") private var notifyOnTurnEnd = true
   @State private var launchAtLogin = false
+  @State private var notificationsDenied = false
 
   private var isBundled: Bool {
     Bundle.main.bundleIdentifier != nil
@@ -20,6 +24,10 @@ struct SettingsView: View {
     @Bindable var login = login
 
     Form {
+      if notificationsDenied {
+        permissionWarningSection
+      }
+
       Section("Conta") {
         accountSection(login)
       }
@@ -40,6 +48,14 @@ struct SettingsView: View {
         Toggle("95%", isOn: $notifyAt95)
       }
 
+      Section("Claude Code") {
+        Toggle("Avisar quando terminar de responder", isOn: $notifyOnTurnEnd)
+          .onChange(of: notifyOnTurnEnd) { _, newValue in
+            model.setTurnEndNotifications(enabled: newValue)
+          }
+          .disabled(!isBundled)
+      }
+
       Section("Sistema") {
         Toggle("Abrir no login", isOn: $launchAtLogin)
           .onChange(of: launchAtLogin) { _, newValue in setLaunchAtLogin(newValue) }
@@ -53,7 +69,37 @@ struct SettingsView: View {
     }
     .formStyle(.grouped)
     .frame(width: 380, height: 460)
-    .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
+    .onAppear {
+      launchAtLogin = SMAppService.mainApp.status == .enabled
+      refreshNotificationStatus()
+    }
+  }
+
+  @ViewBuilder
+  private var permissionWarningSection: some View {
+    Section {
+      VStack(alignment: .leading, spacing: 6) {
+        Text("Notificações desativadas").font(.callout).bold()
+        Text("O macOS está bloqueando as notificações do ClaudeGauge. Ative para receber os avisos de uso e de fim de resposta.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        Button("Abrir Ajustes de Notificação") { openNotificationSettings() }
+      }
+    }
+  }
+
+  private func openNotificationSettings() {
+    guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension")
+    else { return }
+    NSWorkspace.shared.open(url)
+  }
+
+  private func refreshNotificationStatus() {
+    guard isBundled else { return }
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+      let denied = settings.authorizationStatus == .denied
+      Task { @MainActor in notificationsDenied = denied }
+    }
   }
 
   @ViewBuilder

@@ -36,6 +36,16 @@ final class TranscriptWatcher {
     }
   }
 
+  func stop() {
+    queue.async { [weak self] in
+      guard let stream = self?.stream else { return }
+      FSEventStreamStop(stream)
+      FSEventStreamInvalidate(stream)
+      FSEventStreamRelease(stream)
+      self?.stream = nil
+    }
+  }
+
   private func seekToEndOfExistingFiles() {
     for file in transcriptFiles() {
       offsetByPath[file.path] = fileSize(file.path)

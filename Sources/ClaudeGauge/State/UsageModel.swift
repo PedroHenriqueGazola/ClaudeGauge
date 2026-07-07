@@ -36,7 +36,17 @@ final class UsageModel {
     }
   }
 
+  func setTurnEndNotifications(enabled: Bool) {
+    guard enabled else {
+      transcriptWatcher?.stop()
+      transcriptWatcher = nil
+      return
+    }
+    startTranscriptWatcher()
+  }
+
   private func startTranscriptWatcher() {
+    guard transcriptWatcher == nil else { return }
     guard UserDefaults.standard.object(forKey: "notifyOnTurnEnd") as? Bool ?? true else { return }
     let watcher = TranscriptWatcher { [weak self] project in
       Task { @MainActor in self?.notifier.notify(.finished(project: project)) }
