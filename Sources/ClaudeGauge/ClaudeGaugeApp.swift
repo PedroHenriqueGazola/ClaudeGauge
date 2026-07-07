@@ -33,7 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     button.target = self
     button.action = #selector(togglePopover)
     appearanceObservation = button.observe(\.effectiveAppearance) { [weak self] _, _ in
-      Task { @MainActor in self?.updateStatusImage() }
+      guard let self else { return }
+      Task { @MainActor in self.updateStatusImage() }
     }
     updateStatusImage()
   }
@@ -70,9 +71,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     withObservationTracking {
       _ = model.snapshot
     } onChange: { [weak self] in
+      guard let self else { return }
       Task { @MainActor in
-        self?.updateStatusImage()
-        self?.observeSnapshot()
+        self.updateStatusImage()
+        self.observeSnapshot()
       }
     }
   }
