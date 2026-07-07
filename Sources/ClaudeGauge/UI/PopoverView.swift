@@ -109,6 +109,8 @@ struct PopoverView: View {
         iconButton("arrow.clockwise") { Task { await model.refresh(force: true) } }
           .disabled(model.isRefreshing)
           .help("Atualizar agora")
+        iconButton("gearshape") { openSettingsWindow() }
+          .help("Configurações")
         iconButton("power") { NSApp.terminate(nil) }
           .help("Sair")
       }
