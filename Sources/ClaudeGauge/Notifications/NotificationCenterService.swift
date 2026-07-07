@@ -1,7 +1,7 @@
 import Foundation
 import UserNotifications
 
-final class NotificationCenterService {
+final class NotificationCenterService: NSObject, UNUserNotificationCenterDelegate {
   private var firedKeys: Set<String> = []
   private var lastPercentByWindow: [String: Double] = [:]
 
@@ -20,7 +20,41 @@ final class NotificationCenterService {
 
   func requestAuthorizationIfNeeded() {
     guard isBundled else { return }
-    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    let center = UNUserNotificationCenter.current()
+    center.delegate = self
+    center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+      guard ProcessInfo.processInfo.environment["CLAUDEGAUGE_DEBUG"] != nil else { return }
+      FileHandle.standardError.write(
+        Data("[ClaudeGauge notif] authorization granted=\(granted) error=\(String(describing: error))\n".utf8))
+    }
+  }
+
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .sound])
+  }
+
+  func notify(_ event: ClaudeHookEvent) {
+    guard isBundled else { return }
+    let (title, body) = content(for: event)
+    notify(title: title, body: body)
+  }
+
+  private func content(for event: ClaudeHookEvent) -> (title: String, body: String) {
+    switch event {
+    case .finished(let project):
+      return ("Claude · terminou", body(base: "Resposta pronta", project: project))
+    case .needsAttention(let project):
+      return ("Claude · precisa de você", body(base: "Esperando sua resposta", project: project))
+    }
+  }
+
+  private func body(base: String, project: String?) -> String {
+    guard let project, !project.isEmpty else { return base }
+    return "\(project) — \(base.lowercased())"
   }
 
   func evaluate(snapshot: UsageSnapshot) {
@@ -63,6 +97,11 @@ final class NotificationCenterService {
     content.sound = .default
     let request = UNNotificationRequest(
       identifier: UUID().uuidString, content: content, trigger: nil)
-    UNUserNotificationCenter.current().add(request)
+    UNUserNotificationCenter.current().add(request) { error in
+      guard ProcessInfo.processInfo.environment["CLAUDEGAUGE_DEBUG"] != nil else { return }
+      let status = error.map { "erro: \($0.localizedDescription)" } ?? "agendada"
+      FileHandle.standardError.write(
+        Data(("[ClaudeGauge notif] \(title) — \(status)\n").utf8))
+    }
   }
 }

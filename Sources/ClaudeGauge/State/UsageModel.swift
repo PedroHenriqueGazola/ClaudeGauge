@@ -16,6 +16,7 @@ final class UsageModel {
   private let apiClient = UsageAPIClient()
   private let notifier = NotificationCenterService()
   private var timer: Timer?
+  private var transcriptWatcher: TranscriptWatcher?
   private var nextAllowedFetch: Date = .distantPast
 
   private var refreshIntervalSeconds: Double {
@@ -27,11 +28,25 @@ final class UsageModel {
     notifier.requestAuthorizationIfNeeded()
     Task { await refresh() }
     scheduleTimer()
+    startTranscriptWatcher()
     NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
     ) { [weak self] _ in
       Task { [weak self] in await self?.refresh() }
     }
+  }
+
+  private func startTranscriptWatcher() {
+    guard UserDefaults.standard.object(forKey: "notifyOnTurnEnd") as? Bool ?? true else { return }
+    let watcher = TranscriptWatcher { [weak self] project in
+      Task { @MainActor in self?.notifier.notify(.finished(project: project)) }
+    }
+    watcher.start()
+    transcriptWatcher = watcher
+  }
+
+  func notifyClaudeHook(_ event: ClaudeHookEvent) {
+    notifier.notify(event)
   }
 
   func scheduleTimer() {

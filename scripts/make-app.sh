@@ -35,6 +35,14 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>$BUNDLE_ID</string>
+      <key>CFBundleURLSchemes</key>
+      <array><string>claudegauge</string></array>
+    </dict>
+  </array>
 </dict>
 </plist>
 PLIST

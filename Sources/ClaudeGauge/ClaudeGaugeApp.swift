@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import SwiftUI
 
 @main
@@ -20,12 +21,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var settingsWindow: NSWindow?
   private var appearanceObservation: NSKeyValueObservation?
 
+  func applicationWillFinishLaunching(_ notification: Notification) {
+    NSAppleEventManager.shared().setEventHandler(
+      self,
+      andSelector: #selector(handleGetURLEvent(_:withReply:)),
+      forEventClass: AEEventClass(kInternetEventClass),
+      andEventID: AEEventID(kAEGetURL))
+  }
+
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
     setupPopover()
     setupStatusItem()
     model.start()
     observeSnapshot()
+  }
+
+  @objc private func handleGetURLEvent(
+    _ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor
+  ) {
+    let string = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue
+    logHookDebug("received url=\(string ?? "nil")")
+    guard let string, let url = URL(string: string),
+      let hookEvent = ClaudeHookURL.parse(url)
+    else { return }
+    model.notifyClaudeHook(hookEvent)
+  }
+
+  private func logHookDebug(_ message: String) {
+    guard ProcessInfo.processInfo.environment["CLAUDEGAUGE_DEBUG"] != nil else { return }
+    FileHandle.standardError.write(Data(("[ClaudeGauge hook] " + message + "\n").utf8))
   }
 
   private func setupStatusItem() {
