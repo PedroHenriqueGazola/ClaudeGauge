@@ -15,9 +15,17 @@ final class UsageModel {
   private let authProvider = AuthProvider()
   private let apiClient = UsageAPIClient()
   private let notifier = NotificationCenterService()
+  let sessionRegistry: SessionRegistry
   private var timer: Timer?
-  private var transcriptWatcher: TranscriptWatcher?
   private var nextAllowedFetch: Date = .distantPast
+
+  private init() {
+    let notifier = notifier
+    sessionRegistry = SessionRegistry { session in
+      guard UserDefaults.standard.object(forKey: "notifyOnTurnEnd") as? Bool ?? true else { return }
+      notifier.notify(.finished(session))
+    }
+  }
 
   private var refreshIntervalSeconds: Double {
     let stored = UserDefaults.standard.double(forKey: "refreshIntervalSeconds")
@@ -28,31 +36,12 @@ final class UsageModel {
     notifier.requestAuthorizationIfNeeded()
     Task { await refresh() }
     scheduleTimer()
-    startTranscriptWatcher()
+    sessionRegistry.start()
     NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
     ) { [weak self] _ in
       Task { [weak self] in await self?.refresh() }
     }
-  }
-
-  func setTurnEndNotifications(enabled: Bool) {
-    guard enabled else {
-      transcriptWatcher?.stop()
-      transcriptWatcher = nil
-      return
-    }
-    startTranscriptWatcher()
-  }
-
-  private func startTranscriptWatcher() {
-    guard transcriptWatcher == nil else { return }
-    guard UserDefaults.standard.object(forKey: "notifyOnTurnEnd") as? Bool ?? true else { return }
-    let watcher = TranscriptWatcher { [weak self] session in
-      Task { @MainActor in self?.notifier.notify(.finished(session)) }
-    }
-    watcher.start()
-    transcriptWatcher = watcher
   }
 
   func notifyClaudeHook(_ event: ClaudeHookEvent) {

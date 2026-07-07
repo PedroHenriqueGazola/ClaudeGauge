@@ -15,6 +15,61 @@ func resetText(for date: Date?) -> String {
   return "reseta em \(minutes)min"
 }
 
+func elapsedText(since date: Date) -> String {
+  let seconds = Int(Date().timeIntervalSince(date))
+  if seconds < 45 { return "agora" }
+  let minutes = seconds / 60
+  if minutes < 60 { return "\(max(minutes, 1))min" }
+  return "\(minutes / 60)h"
+}
+
+struct SessionRow: View {
+  let session: ClaudeSessionState
+
+  var body: some View {
+    HStack(spacing: 9) {
+      Circle().fill(color).frame(width: 7, height: 7)
+      VStack(alignment: .leading, spacing: 1) {
+        Text(session.project ?? "sessão")
+          .font(.system(size: 12.5, weight: .medium))
+          .foregroundStyle(Palette.textPrimary)
+          .lineLimit(1)
+        if let title = session.title, !title.isEmpty {
+          Text(title)
+            .font(.system(size: 11))
+            .foregroundStyle(Palette.textSecondary)
+            .lineLimit(1)
+        }
+      }
+      Spacer(minLength: 8)
+      Text(statusText)
+        .font(.system(size: 10.5))
+        .foregroundStyle(color)
+        .lineLimit(1)
+    }
+  }
+
+  private var color: Color {
+    switch session.status {
+    case .awaitingUser: return Palette.claudeOrange
+    case .working: return Palette.green
+    case .idle: return Palette.textMuted
+    }
+  }
+
+  private var statusText: String {
+    "\(statusLabel) · \(elapsedText(since: session.lastActivityAt))"
+  }
+
+  private var statusLabel: String {
+    switch session.status {
+    case .awaitingUser: return "sua vez"
+    case .working: return "trabalhando"
+    case .idle: return "ociosa"
+    }
+  }
+}
+
 struct IconBadge: View {
   let systemName: String
   let iconColor: Color

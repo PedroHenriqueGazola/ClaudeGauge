@@ -1,24 +1,26 @@
 import Foundation
 
 // O Claude Code grava cada sessão em ~/.claude/projects/<projeto>/<sessão>.jsonl,
-// uma linha JSON por evento. Uma resposta termina quando aparece uma linha
-// `type: assistant` com `stop_reason: end_turn` (tool_use = ainda trabalhando).
-// Observar esses arquivos é a forma de notificar o fim de um turno sem depender
-// dos hooks do Claude Code — que a política da org pode bloquear
-// (allowManagedHooksOnly).
+// uma linha JSON por evento. Este watcher observa esses arquivos via FSEvents e
+// reporta a atividade de cada sessão (trabalhando / turno terminado), sem
+// depender dos hooks do Claude Code — que a política da org pode bloquear
+// (allowManagedHooksOnly). No start, lê a cauda dos transcripts recentes pra
+// reconstruir o estado das sessões que já estavam abertas.
 final class TranscriptWatcher {
   private let projectsDirectory: URL
-  private let onTurnFinished: (ClaudeSession) -> Void
+  private let onActivity: (SessionActivity) -> Void
 
   private var stream: FSEventStreamRef?
   private var offsetByPath: [String: UInt64] = [:]
   private var titleBySession: [String: String] = [:]
   private let queue = DispatchQueue(label: "com.pedrogazola.claudegauge.transcript")
 
+  private let initialLookback: TimeInterval = 6 * 60 * 60
+
   init(projectsDirectory: URL = TranscriptWatcher.defaultProjectsDirectory,
-       onTurnFinished: @escaping (ClaudeSession) -> Void) {
+       onActivity: @escaping (SessionActivity) -> Void) {
     self.projectsDirectory = projectsDirectory
-    self.onTurnFinished = onTurnFinished
+    self.onActivity = onActivity
   }
 
   static var defaultProjectsDirectory: URL {
@@ -32,6 +34,7 @@ final class TranscriptWatcher {
   func start() {
     guard FileManager.default.fileExists(atPath: projectsDirectory.path) else { return }
     queue.async { [weak self] in
+      self?.loadInitialStates()
       self?.seekToEndOfExistingFiles()
       self?.startStream()
     }
@@ -45,6 +48,21 @@ final class TranscriptWatcher {
       FSEventStreamRelease(stream)
       self?.stream = nil
     }
+  }
+
+  private func loadInitialStates() {
+    let cutoff = Date().addingTimeInterval(-initialLookback)
+    for file in transcriptFiles() where modificationDate(file.path) > cutoff {
+      loadTail(file.path)
+    }
+  }
+
+  private func loadTail(_ path: String) {
+    guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { return }
+    let rows = content.split(separator: "\n").compactMap { parseLine(Data($0.utf8)) }
+    rows.forEach(captureTitle)
+    guard let last = rows.last(where: isRelevant) else { return }
+    emitActivity(from: last, path: path, isLive: false)
   }
 
   private func seekToEndOfExistingFiles() {
@@ -90,13 +108,35 @@ final class TranscriptWatcher {
     data
       .split(separator: 0x0A, omittingEmptySubsequences: true)
       .compactMap { parseLine(Data($0)) }
-      .forEach { handle($0, path: path) }
+      .forEach { row in
+        captureTitle(row)
+        emitActivity(from: row, path: path, isLive: true)
+      }
   }
 
-  private func handle(_ row: [String: Any], path: String) {
-    captureTitle(from: row)
-    guard isFinishedTurn(row) else { return }
-    onTurnFinished(session(from: row, path: path))
+  private func emitActivity(from row: [String: Any], path: String, isLive: Bool) {
+    guard isRelevant(row), let sessionId = row["sessionId"] as? String else { return }
+    let cwd = row["cwd"] as? String
+    onActivity(
+      SessionActivity(
+        sessionId: sessionId,
+        project: cwd.map { URL(fileURLWithPath: $0).lastPathComponent },
+        title: title(forSession: sessionId, path: path),
+        kind: activityKind(row),
+        timestamp: timestamp(row) ?? Date(),
+        isLive: isLive))
+  }
+
+  private func isRelevant(_ row: [String: Any]) -> Bool {
+    guard row["isSidechain"] as? Bool != true else { return false }
+    let type = row["type"] as? String
+    return type == "assistant" || type == "user"
+  }
+
+  private func activityKind(_ row: [String: Any]) -> SessionActivityKind {
+    guard row["type"] as? String == "assistant" else { return .working }
+    let stopReason = (row["message"] as? [String: Any])?["stop_reason"] as? String
+    return (stopReason == "end_turn" || stopReason == "stop_sequence") ? .turnEnded : .working
   }
 
   private func unreadData(at path: String) -> Data? {
@@ -117,7 +157,7 @@ final class TranscriptWatcher {
     try? JSONSerialization.jsonObject(with: line) as? [String: Any]
   }
 
-  private func captureTitle(from row: [String: Any]) {
+  private func captureTitle(_ row: [String: Any]) {
     guard row["type"] as? String == "ai-title",
       let sessionId = row["sessionId"] as? String,
       let title = (row["aiTitle"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -126,24 +166,7 @@ final class TranscriptWatcher {
     titleBySession[sessionId] = title
   }
 
-  private func isFinishedTurn(_ row: [String: Any]) -> Bool {
-    guard row["type"] as? String == "assistant" else { return false }
-    guard row["isSidechain"] as? Bool != true else { return false }
-    guard let message = row["message"] as? [String: Any] else { return false }
-    let stopReason = message["stop_reason"] as? String
-    return stopReason == "end_turn" || stopReason == "stop_sequence"
-  }
-
-  private func session(from row: [String: Any], path: String) -> ClaudeSession {
-    let cwd = row["cwd"] as? String
-    let sessionId = row["sessionId"] as? String
-    return ClaudeSession(
-      project: cwd.map { URL(fileURLWithPath: $0).lastPathComponent },
-      title: title(forSession: sessionId, path: path))
-  }
-
-  private func title(forSession sessionId: String?, path: String) -> String? {
-    guard let sessionId else { return nil }
+  private func title(forSession sessionId: String, path: String) -> String? {
     if let cached = titleBySession[sessionId] { return cached }
     guard let title = readTitleFromFile(path) else { return nil }
     titleBySession[sessionId] = title
@@ -163,6 +186,11 @@ final class TranscriptWatcher {
     return nil
   }
 
+  private func timestamp(_ row: [String: Any]) -> Date? {
+    guard let string = row["timestamp"] as? String else { return nil }
+    return Self.isoFractional.date(from: string) ?? Self.isoPlain.date(from: string)
+  }
+
   private func transcriptFiles() -> [URL] {
     let enumerator = FileManager.default.enumerator(
       at: projectsDirectory,
@@ -176,4 +204,17 @@ final class TranscriptWatcher {
     let attributes = try? FileManager.default.attributesOfItem(atPath: path)
     return (attributes?[.size] as? UInt64) ?? 0
   }
+
+  private func modificationDate(_ path: String) -> Date {
+    let attributes = try? FileManager.default.attributesOfItem(atPath: path)
+    return (attributes?[.modificationDate] as? Date) ?? .distantPast
+  }
+
+  private static let isoFractional: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+
+  private static let isoPlain = ISO8601DateFormatter()
 }

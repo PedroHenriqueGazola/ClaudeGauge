@@ -50,9 +50,6 @@ struct SettingsView: View {
 
       Section("Claude Code") {
         Toggle("Avisar quando terminar de responder", isOn: $notifyOnTurnEnd)
-          .onChange(of: notifyOnTurnEnd) { _, newValue in
-            model.setTurnEndNotifications(enabled: newValue)
-          }
           .disabled(!isBundled)
       }
 

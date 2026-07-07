@@ -10,6 +10,7 @@ struct PopoverView: View {
     VStack(alignment: .leading, spacing: 0) {
       header
       content
+      sessionsSection
       footer
     }
     .frame(width: 296)
@@ -78,6 +79,42 @@ struct PopoverView: View {
       }
       if let window = snapshot.sonnetWeekly {
         MetricRow(icon: "sparkle", title: "Sonnet", subtitle: "semanal", window: window)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var sessionsSection: some View {
+    let sessions = model.sessionRegistry.sessions
+    if !sessions.isEmpty {
+      VStack(alignment: .leading, spacing: 0) {
+        Rectangle().fill(Palette.divider).frame(height: 1)
+        HStack {
+          Text("SESSÕES")
+            .font(.system(size: 10.5, weight: .semibold))
+            .tracking(0.5)
+            .foregroundStyle(Palette.textMuted)
+          Spacer()
+          Text("\(sessions.count)")
+            .font(.system(size: 10.5, weight: .medium))
+            .foregroundStyle(Palette.textMuted)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 9)
+        VStack(spacing: 11) {
+          ForEach(sessions.prefix(6)) { session in
+            SessionRow(session: session)
+          }
+          if sessions.count > 6 {
+            Text("+\(sessions.count - 6) outras")
+              .font(.system(size: 11))
+              .foregroundStyle(Palette.textMuted)
+              .frame(maxWidth: .infinity, alignment: .leading)
+          }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 14)
       }
     }
   }
