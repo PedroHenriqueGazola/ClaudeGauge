@@ -1,8 +1,14 @@
 import Foundation
 
+struct ClaudeSession: Equatable {
+  let project: String?
+  let title: String?
+  let cwd: String?
+}
+
 enum ClaudeHookEvent: Equatable {
-  case finished(project: String?)
-  case needsAttention(project: String?)
+  case finished(ClaudeSession)
+  case needsAttention(ClaudeSession)
 }
 
 enum ClaudeHookURL {
@@ -13,16 +19,24 @@ enum ClaudeHookURL {
     guard url.scheme == scheme, url.host == host else { return nil }
 
     let query = queryValues(url)
-    let project = query["project"].flatMap { $0.isEmpty ? nil : $0 }
+    let session = ClaudeSession(
+      project: nonEmpty(query["project"]),
+      title: nonEmpty(query["title"]),
+      cwd: nonEmpty(query["cwd"]))
 
     switch query["event"] {
     case "finished":
-      return .finished(project: project)
+      return .finished(session)
     case "attention":
-      return .needsAttention(project: project)
+      return .needsAttention(session)
     default:
       return nil
     }
+  }
+
+  private static func nonEmpty(_ value: String?) -> String? {
+    guard let value, !value.isEmpty else { return nil }
+    return value
   }
 
   private static func queryValues(_ url: URL) -> [String: String] {

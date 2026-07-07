@@ -39,22 +39,34 @@ final class NotificationCenterService: NSObject, UNUserNotificationCenterDelegat
 
   func notify(_ event: ClaudeHookEvent) {
     guard isBundled else { return }
-    let (title, body) = content(for: event)
-    notify(title: title, body: body)
+    let (title, session, fallbackBody) = presentation(for: event)
+    notify(
+      title: title,
+      body: session.title ?? fallbackBody,
+      subtitle: session.project,
+      cwd: session.cwd)
   }
 
-  private func content(for event: ClaudeHookEvent) -> (title: String, body: String) {
-    switch event {
-    case .finished(let project):
-      return ("Claude · terminou", body(base: "Resposta pronta", project: project))
-    case .needsAttention(let project):
-      return ("Claude · precisa de você", body(base: "Esperando sua resposta", project: project))
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    if let cwd = response.notification.request.content.userInfo["cwd"] as? String {
+      TerminalActivator.activate(forCwd: cwd)
     }
+    completionHandler()
   }
 
-  private func body(base: String, project: String?) -> String {
-    guard let project, !project.isEmpty else { return base }
-    return "\(project) — \(base.lowercased())"
+  private func presentation(for event: ClaudeHookEvent)
+    -> (title: String, session: ClaudeSession, fallbackBody: String)
+  {
+    switch event {
+    case .finished(let session):
+      return ("Claude terminou", session, "Resposta pronta")
+    case .needsAttention(let session):
+      return ("Claude precisa de você", session, "Esperando sua resposta")
+    }
   }
 
   func evaluate(snapshot: UsageSnapshot) {
@@ -90,18 +102,20 @@ final class NotificationCenterService: NSObject, UNUserNotificationCenterDelegat
     firedKeys = firedKeys.filter { !$0.hasPrefix("\(label)_") }
   }
 
-  private func notify(title: String, body: String) {
+  private func notify(title: String, body: String, subtitle: String? = nil, cwd: String? = nil) {
     let content = UNMutableNotificationContent()
     content.title = title
+    if let subtitle, !subtitle.isEmpty { content.subtitle = subtitle }
     content.body = body
     content.sound = .default
+    if let cwd, !cwd.isEmpty { content.userInfo = ["cwd": cwd] }
     let request = UNNotificationRequest(
       identifier: UUID().uuidString, content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request) { error in
       guard ProcessInfo.processInfo.environment["CLAUDEGAUGE_DEBUG"] != nil else { return }
       let status = error.map { "erro: \($0.localizedDescription)" } ?? "agendada"
       FileHandle.standardError.write(
-        Data(("[ClaudeGauge notif] \(title) — \(status)\n").utf8))
+        Data(("[ClaudeGauge notif] \(title) / \(body) — \(status)\n").utf8))
     }
   }
 }

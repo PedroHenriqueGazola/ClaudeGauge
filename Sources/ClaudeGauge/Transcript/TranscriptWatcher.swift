@@ -8,14 +8,15 @@ import Foundation
 // (allowManagedHooksOnly).
 final class TranscriptWatcher {
   private let projectsDirectory: URL
-  private let onTurnFinished: (String?) -> Void
+  private let onTurnFinished: (ClaudeSession) -> Void
 
   private var stream: FSEventStreamRef?
   private var offsetByPath: [String: UInt64] = [:]
+  private var titleBySession: [String: String] = [:]
   private let queue = DispatchQueue(label: "com.pedrogazola.claudegauge.transcript")
 
   init(projectsDirectory: URL = TranscriptWatcher.defaultProjectsDirectory,
-       onTurnFinished: @escaping (String?) -> Void) {
+       onTurnFinished: @escaping (ClaudeSession) -> Void) {
     self.projectsDirectory = projectsDirectory
     self.onTurnFinished = onTurnFinished
   }
@@ -89,8 +90,13 @@ final class TranscriptWatcher {
     data
       .split(separator: 0x0A, omittingEmptySubsequences: true)
       .compactMap { parseLine(Data($0)) }
-      .filter(isFinishedTurn)
-      .forEach { onTurnFinished(projectName(from: $0)) }
+      .forEach { handle($0, path: path) }
+  }
+
+  private func handle(_ row: [String: Any], path: String) {
+    captureTitle(from: row)
+    guard isFinishedTurn(row) else { return }
+    onTurnFinished(session(from: row, path: path))
   }
 
   private func unreadData(at path: String) -> Data? {
@@ -111,6 +117,15 @@ final class TranscriptWatcher {
     try? JSONSerialization.jsonObject(with: line) as? [String: Any]
   }
 
+  private func captureTitle(from row: [String: Any]) {
+    guard row["type"] as? String == "ai-title",
+      let sessionId = row["sessionId"] as? String,
+      let title = (row["aiTitle"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !title.isEmpty
+    else { return }
+    titleBySession[sessionId] = title
+  }
+
   private func isFinishedTurn(_ row: [String: Any]) -> Bool {
     guard row["type"] as? String == "assistant" else { return false }
     guard row["isSidechain"] as? Bool != true else { return false }
@@ -119,9 +134,34 @@ final class TranscriptWatcher {
     return stopReason == "end_turn" || stopReason == "stop_sequence"
   }
 
-  private func projectName(from row: [String: Any]) -> String? {
-    guard let cwd = row["cwd"] as? String, !cwd.isEmpty else { return nil }
-    return URL(fileURLWithPath: cwd).lastPathComponent
+  private func session(from row: [String: Any], path: String) -> ClaudeSession {
+    let cwd = row["cwd"] as? String
+    let sessionId = row["sessionId"] as? String
+    return ClaudeSession(
+      project: cwd.map { URL(fileURLWithPath: $0).lastPathComponent },
+      title: title(forSession: sessionId, path: path),
+      cwd: cwd)
+  }
+
+  private func title(forSession sessionId: String?, path: String) -> String? {
+    guard let sessionId else { return nil }
+    if let cached = titleBySession[sessionId] { return cached }
+    guard let title = readTitleFromFile(path) else { return nil }
+    titleBySession[sessionId] = title
+    return title
+  }
+
+  private func readTitleFromFile(_ path: String) -> String? {
+    guard let content = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+    for line in content.split(separator: "\n").reversed() {
+      guard let row = parseLine(Data(line.utf8)),
+        row["type"] as? String == "ai-title",
+        let title = (row["aiTitle"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+        !title.isEmpty
+      else { continue }
+      return title
+    }
+    return nil
   }
 
   private func transcriptFiles() -> [URL] {
