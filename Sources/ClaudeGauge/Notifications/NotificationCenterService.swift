@@ -40,22 +40,7 @@ final class NotificationCenterService: NSObject, UNUserNotificationCenterDelegat
   func notify(_ event: ClaudeHookEvent) {
     guard isBundled else { return }
     let (title, session, fallbackBody) = presentation(for: event)
-    notify(
-      title: title,
-      body: session.title ?? fallbackBody,
-      subtitle: session.project,
-      cwd: session.cwd)
-  }
-
-  func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    didReceive response: UNNotificationResponse,
-    withCompletionHandler completionHandler: @escaping () -> Void
-  ) {
-    if let cwd = response.notification.request.content.userInfo["cwd"] as? String {
-      TerminalActivator.activate(forCwd: cwd)
-    }
-    completionHandler()
+    notify(title: title, body: session.title ?? fallbackBody, subtitle: session.project)
   }
 
   private func presentation(for event: ClaudeHookEvent)
@@ -102,13 +87,12 @@ final class NotificationCenterService: NSObject, UNUserNotificationCenterDelegat
     firedKeys = firedKeys.filter { !$0.hasPrefix("\(label)_") }
   }
 
-  private func notify(title: String, body: String, subtitle: String? = nil, cwd: String? = nil) {
+  private func notify(title: String, body: String, subtitle: String? = nil) {
     let content = UNMutableNotificationContent()
     content.title = title
     if let subtitle, !subtitle.isEmpty { content.subtitle = subtitle }
     content.body = body
     content.sound = .default
-    if let cwd, !cwd.isEmpty { content.userInfo = ["cwd": cwd] }
     let request = UNNotificationRequest(
       identifier: UUID().uuidString, content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request) { error in

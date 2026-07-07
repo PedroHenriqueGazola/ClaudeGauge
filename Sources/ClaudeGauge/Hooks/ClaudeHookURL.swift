@@ -3,7 +3,6 @@ import Foundation
 struct ClaudeSession: Equatable {
   let project: String?
   let title: String?
-  let cwd: String?
 }
 
 enum ClaudeHookEvent: Equatable {
@@ -21,8 +20,7 @@ enum ClaudeHookURL {
     let query = queryValues(url)
     let session = ClaudeSession(
       project: nonEmpty(query["project"]),
-      title: nonEmpty(query["title"]),
-      cwd: nonEmpty(query["cwd"]))
+      title: nonEmpty(query["title"]))
 
     switch query["event"] {
     case "finished":

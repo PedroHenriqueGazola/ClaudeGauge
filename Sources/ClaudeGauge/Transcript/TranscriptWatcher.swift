@@ -139,8 +139,7 @@ final class TranscriptWatcher {
     let sessionId = row["sessionId"] as? String
     return ClaudeSession(
       project: cwd.map { URL(fileURLWithPath: $0).lastPathComponent },
-      title: title(forSession: sessionId, path: path),
-      cwd: cwd)
+      title: title(forSession: sessionId, path: path))
   }
 
   private func title(forSession sessionId: String?, path: String) -> String? {
