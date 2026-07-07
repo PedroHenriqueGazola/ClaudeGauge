@@ -7,6 +7,14 @@ App de menu bar pro macOS que mostra o uso do seu Claude (limite de sessão de 5
 - **Notificações** ao passar de 75% / 90% / 95%
 - **Zero setup** se você já usa o Claude Code; ou login OAuth próprio pra quem não usa
 
+## Screenshots
+
+<img src="docs/popover.png" alt="Popover do ClaudeGauge" width="300">
+
+Na menu bar:
+
+<img src="docs/menubar.png" alt="ClaudeGauge na menu bar" width="240">
+
 ## Requisitos
 
 - macOS 14 (Sonoma) ou superior
