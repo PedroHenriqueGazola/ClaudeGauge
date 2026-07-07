@@ -27,7 +27,8 @@ final class SessionRegistry {
   func start() {
     guard watcher == nil else { return }
     let watcher = TranscriptWatcher { [weak self] activity in
-      Task { @MainActor in self?.apply(activity) }
+      guard let self else { return }
+      Task { @MainActor in self.apply(activity) }
     }
     watcher.start()
     self.watcher = watcher
@@ -63,13 +64,15 @@ final class SessionRegistry {
 
   private func scheduleSweep() {
     sweepTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-      Task { @MainActor in self?.sweep() }
+      guard let self else { return }
+      Task { @MainActor in self.sweep() }
     }
   }
 
   private func scheduleProbe() {
     probeTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
-      Task { @MainActor in self?.refreshLiveProcesses() }
+      guard let self else { return }
+      Task { @MainActor in self.refreshLiveProcesses() }
     }
   }
 
