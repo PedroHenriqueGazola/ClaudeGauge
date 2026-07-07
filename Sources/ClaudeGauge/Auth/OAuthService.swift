@@ -34,7 +34,9 @@ struct OAuthService {
   static let tokenURL = URL(string: "https://platform.claude.com/v1/oauth/token")!
   static let scopes =
     "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload"
-  private static let userAgent = "claude-code/2.1.201 (external, claudegauge)"
+  // O endpoint de token devolve um 429 falso pra User-Agent não reconhecido;
+  // axios/1.13.6 é o workaround usado pelo ccauth (evita o rate_limit_error).
+  private static let userAgent = "axios/1.13.6"
 
   private let session: URLSession
 

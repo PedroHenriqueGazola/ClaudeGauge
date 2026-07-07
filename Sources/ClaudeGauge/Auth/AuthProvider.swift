@@ -71,7 +71,7 @@ final class AuthProvider {
   }
 
   private func claudeCodeAuth() throws -> ResolvedAuth {
-    guard let credentials = try? credentialsReader.read() else {
+    guard let credentials = credentialsReader.read() else {
       throw AuthError.noAccount
     }
     return ResolvedAuth(

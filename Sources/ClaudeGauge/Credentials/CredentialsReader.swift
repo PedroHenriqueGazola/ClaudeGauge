@@ -1,5 +1,4 @@
 import Foundation
-import Security
 
 struct ClaudeCredentials {
   let accessToken: String
@@ -7,31 +6,17 @@ struct ClaudeCredentials {
   let subscriptionType: String?
 }
 
-enum CredentialsError: LocalizedError {
-  case notFound
-
-  var errorDescription: String? {
-    switch self {
-    case .notFound:
-      return "Não encontrei o login do Claude Code. Rode `claude` no terminal e faça login."
-    }
-  }
-}
-
+// Lê as credenciais do Claude Code só de fontes silenciosas: a env var e o
+// arquivo ~/.claude/.credentials.json. NÃO lê o item do Keychain do Claude
+// Code de propósito — acesso cross-app dispara o diálogo de senha do macOS a
+// cada renovação de token do CLI (o Claude Code reescreve o item e reseta a
+// permissão). Pra quem não tem o arquivo, o caminho é o login OAuth do app.
 struct CredentialsReader {
-  private let keychainServicePrefix = "Claude Code-credentials"
-
-  func read() throws -> ClaudeCredentials {
+  func read() -> ClaudeCredentials? {
     if let token = environmentToken() {
       return ClaudeCredentials(accessToken: token, expiresAt: nil, subscriptionType: nil)
     }
-    if let credentials = readFromFile() {
-      return credentials
-    }
-    if let credentials = readFromKeychain() {
-      return credentials
-    }
-    throw CredentialsError.notFound
+    return readFromFile()
   }
 
   private func environmentToken() -> String? {
@@ -60,45 +45,6 @@ struct CredentialsReader {
       .first
   }
 
-  private func readFromKeychain() -> ClaudeCredentials? {
-    keychainServiceNames().lazy
-      .compactMap { readSecret(service: $0) }
-      .compactMap { parse($0) }
-      .max { ($0.expiresAt ?? .distantPast) < ($1.expiresAt ?? .distantPast) }
-  }
-
-  private func keychainServiceNames() -> [String] {
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecMatchLimit as String: kSecMatchLimitAll,
-      kSecReturnAttributes as String: true,
-    ]
-    var result: CFTypeRef?
-    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-      let items = result as? [[String: Any]]
-    else { return [keychainServicePrefix] }
-
-    let matching = items
-      .compactMap { $0[kSecAttrService as String] as? String }
-      .filter { $0.hasPrefix(keychainServicePrefix) }
-
-    return matching.isEmpty ? [keychainServicePrefix] : matching
-  }
-
-  private func readSecret(service: String) -> Data? {
-    let query: [String: Any] = [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: service,
-      kSecMatchLimit as String: kSecMatchLimitOne,
-      kSecReturnData as String: true,
-    ]
-    var result: CFTypeRef?
-    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-      let data = result as? Data
-    else { return nil }
-    return data
-  }
-
   private func parse(_ data: Data) -> ClaudeCredentials? {
     guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
       let oauth = root["claudeAiOauth"] as? [String: Any],
@@ -109,8 +55,7 @@ struct CredentialsReader {
     return ClaudeCredentials(
       accessToken: token,
       expiresAt: expiryDate(from: oauth["expiresAt"]),
-      subscriptionType: oauth["subscriptionType"] as? String
-    )
+      subscriptionType: oauth["subscriptionType"] as? String)
   }
 
   private func expiryDate(from value: Any?) -> Date? {

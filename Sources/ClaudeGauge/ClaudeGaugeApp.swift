@@ -7,7 +7,7 @@ struct ClaudeGaugeApp: App {
 
   var body: some Scene {
     Settings {
-      SettingsView(model: UsageModel.shared)
+      EmptyView()
     }
   }
 }
@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let model = UsageModel.shared
   private var statusItem: NSStatusItem!
   private let popover = NSPopover()
+  private var settingsWindow: NSWindow?
   private var appearanceObservation: NSKeyValueObservation?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -59,12 +60,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func openSettings() {
     popover.performClose(nil)
-    NSApp.activate(ignoringOtherApps: true)
-    if #available(macOS 14, *) {
-      NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-    } else {
-      NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+    if settingsWindow == nil {
+      let hosting = NSHostingController(rootView: SettingsView(model: model))
+      let window = NSWindow(contentViewController: hosting)
+      window.title = "ClaudeGauge"
+      window.styleMask = [.titled, .closable]
+      window.isReleasedWhenClosed = false
+      window.center()
+      settingsWindow = window
     }
+    NSApp.activate(ignoringOtherApps: true)
+    settingsWindow?.makeKeyAndOrderFront(nil)
   }
 
   private func observeSnapshot() {
