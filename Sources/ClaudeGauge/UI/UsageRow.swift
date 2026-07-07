@@ -63,7 +63,7 @@ struct SessionRow: View {
 
   private var statusLabel: String {
     switch session.status {
-    case .awaitingUser: return "sua vez"
+    case .awaitingUser: return "esperando você"
     case .working: return "trabalhando"
     case .idle: return "ociosa"
     }
