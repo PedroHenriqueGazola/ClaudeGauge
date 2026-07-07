@@ -1,0 +1,31 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build .app
+        env:
+          APP_VERSION: ${{ github.ref_name }}
+        run: ./scripts/make-app.sh
+
+      - name: Package
+        run: ditto -c -k --keepParent ClaudeGauge.app ClaudeGauge.zip
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" ClaudeGauge.zip \
+            --title "ClaudeGauge $GITHUB_REF_NAME" \
+            --notes-file .github/release-notes.md

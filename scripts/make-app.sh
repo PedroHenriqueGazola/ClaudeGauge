@@ -4,7 +4,8 @@ set -euo pipefail
 APP_NAME="ClaudeGauge"
 DISPLAY_NAME="Claude Gauge"
 BUNDLE_ID="com.pedrogazola.claudegauge"
-VERSION="0.1.0"
+VERSION="${APP_VERSION:-0.1.0}"
+VERSION="${VERSION#v}"
 
 cd "$(dirname "$0")/.."
 
