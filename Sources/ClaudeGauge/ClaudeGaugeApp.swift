@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private let popover = NSPopover()
   private var settingsWindow: NSWindow?
   private var appearanceObservation: NSKeyValueObservation?
+  private var lastRenderKey: String?
 
   func applicationWillFinishLaunching(_ notification: Notification) {
     NSAppleEventManager.shared().setEventHandler(
@@ -113,6 +114,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func updateStatusImage() {
     guard let button = statusItem.button else { return }
     let dark = button.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+
+    // Setar `button.image` re-dispara o observer de effectiveAppearance, então
+    // só redesenhar quando o conteúdo mudou de fato evita um loop de CPU.
+    let key = renderKey(dark: dark)
+    guard key != lastRenderKey else { return }
+    lastRenderKey = key
+
     if let snapshot = model.snapshot, let image = MenuBarImageRenderer.image(for: snapshot, dark: dark) {
       button.image = image
       button.imagePosition = .imageOnly
@@ -121,5 +129,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       fallback?.isTemplate = true
       button.image = fallback
     }
+  }
+
+  private func renderKey(dark: Bool) -> String {
+    guard let snapshot = model.snapshot else { return "none:\(dark)" }
+    func percent(_ window: UsageWindow?) -> String {
+      window.map { "\(Int($0.percent.rounded()))" } ?? "-"
+    }
+    let resetMinutes = snapshot.fiveHour?.resetsAt.map { Int($0.timeIntervalSinceNow / 60) } ?? -1
+    return "\(percent(snapshot.fiveHour)):\(percent(snapshot.sevenDay)):\(resetMinutes):\(dark)"
   }
 }
