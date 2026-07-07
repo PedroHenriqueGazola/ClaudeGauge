@@ -11,6 +11,7 @@ enum SessionActivityKind {
 struct SessionActivity {
   let sessionId: String
   let project: String?
+  let cwd: String?
   let title: String?
   let kind: SessionActivityKind
   let timestamp: Date
@@ -34,6 +35,7 @@ enum SessionStatus {
 struct ClaudeSessionState: Identifiable, Equatable {
   let id: String
   var project: String?
+  var cwd: String?
   var title: String?
   var status: SessionStatus
   var lastActivityAt: Date

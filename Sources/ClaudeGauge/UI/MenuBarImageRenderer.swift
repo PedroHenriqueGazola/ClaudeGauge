@@ -49,6 +49,9 @@ enum MenuBarImageRenderer {
       segments.append(.text(text(entry.label, color: labelText(dark), weight: .semibold)))
       segments.append(.text(text("\(Int(percent.rounded()))%", color: numberText(dark), weight: .bold)))
       segments.append(.bar(fraction: percent / 100, color: barColor(percent, dark: dark)))
+      if entry.label == "5h", let reset = shortReset(entry.window.resetsAt) {
+        segments.append(.text(text(reset, color: labelText(dark), weight: .medium)))
+      }
       if index < windows.count - 1 {
         segments.append(.text(text("·", color: labelText(dark), weight: .semibold)))
       }
@@ -117,6 +120,16 @@ enum MenuBarImageRenderer {
         .font: NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: weight),
         .foregroundColor: color,
       ])
+  }
+
+  private static func shortReset(_ date: Date?) -> String? {
+    guard let date else { return nil }
+    let interval = date.timeIntervalSinceNow
+    guard interval > 0 else { return nil }
+    let minutes = Int(interval) / 60
+    let hours = minutes / 60
+    if hours > 0 { return "\(hours)h\(String(format: "%02d", minutes % 60))" }
+    return "\(minutes)m"
   }
 
   private static func sparklesIcon() -> NSImage? {

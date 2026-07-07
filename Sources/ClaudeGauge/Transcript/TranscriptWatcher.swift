@@ -121,6 +121,7 @@ final class TranscriptWatcher {
       SessionActivity(
         sessionId: sessionId,
         project: cwd.map { URL(fileURLWithPath: $0).lastPathComponent },
+        cwd: cwd,
         title: title(forSession: sessionId, path: path),
         kind: activityKind(row),
         timestamp: timestamp(row) ?? Date(),

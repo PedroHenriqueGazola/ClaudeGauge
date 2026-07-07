@@ -11,9 +11,11 @@ final class SessionRegistry {
   private(set) var sessions: [ClaudeSessionState] = []
 
   private var byId: [String: ClaudeSessionState] = [:]
+  private var liveCwdCounts: [String: Int]?
   private let onTurnFinished: (ClaudeSession) -> Void
   private var watcher: TranscriptWatcher?
   private var sweepTimer: Timer?
+  private var probeTimer: Timer?
 
   private let idleAfter: TimeInterval = 5 * 60
   private let forgetAfter: TimeInterval = 3 * 60 * 60
@@ -30,6 +32,8 @@ final class SessionRegistry {
     watcher.start()
     self.watcher = watcher
     scheduleSweep()
+    scheduleProbe()
+    refreshLiveProcesses()
   }
 
   private func apply(_ activity: SessionActivity) {
@@ -37,9 +41,10 @@ final class SessionRegistry {
     let wasAwaiting = previous?.status == .awaitingUser
 
     var state = previous ?? ClaudeSessionState(
-      id: activity.sessionId, project: activity.project, title: activity.title,
-      status: .working, lastActivityAt: activity.timestamp)
+      id: activity.sessionId, project: activity.project, cwd: activity.cwd,
+      title: activity.title, status: .working, lastActivityAt: activity.timestamp)
     if let project = activity.project { state.project = project }
+    if let cwd = activity.cwd { state.cwd = cwd }
     if let title = activity.title { state.title = title }
     state.lastActivityAt = max(state.lastActivityAt, activity.timestamp)
     state.status = status(for: activity.kind, lastActivityAt: state.lastActivityAt)
@@ -62,6 +67,22 @@ final class SessionRegistry {
     }
   }
 
+  private func scheduleProbe() {
+    probeTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+      Task { @MainActor in self?.refreshLiveProcesses() }
+    }
+  }
+
+  private func refreshLiveProcesses() {
+    Task.detached(priority: .utility) {
+      let counts = LiveSessionProbe.liveCwdCounts()
+      await MainActor.run { [weak self] in
+        self?.liveCwdCounts = counts
+        self?.republish()
+      }
+    }
+  }
+
   private func sweep() {
     let now = Date()
     for (id, state) in byId {
@@ -78,8 +99,27 @@ final class SessionRegistry {
   }
 
   private func republish() {
-    sessions = byId.values.sorted(by: ordered)
+    sessions = liveSessions().sorted(by: ordered)
     logDebug()
+  }
+
+  // Antes da primeira sondagem de processos, mostra tudo; depois, só sessões
+  // com processo claude vivo no mesmo cwd — no máximo uma por processo vivo
+  // naquele diretório (as mais recentes), pra não listar sessões já encerradas.
+  private func liveSessions() -> [ClaudeSessionState] {
+    guard let liveCwdCounts else { return Array(byId.values) }
+
+    var byCwd: [String: [ClaudeSessionState]] = [:]
+    for state in byId.values {
+      guard let cwd = state.cwd, liveCwdCounts[cwd] != nil else { continue }
+      byCwd[cwd, default: []].append(state)
+    }
+
+    return byCwd.flatMap { cwd, states in
+      states
+        .sorted { $0.lastActivityAt > $1.lastActivityAt }
+        .prefix(liveCwdCounts[cwd] ?? 0)
+    }
   }
 
   private func logDebug() {
