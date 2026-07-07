@@ -1,6 +1,7 @@
 import ServiceManagement
 import SwiftUI
 
+@MainActor
 struct SettingsView: View {
   let model: UsageModel
 

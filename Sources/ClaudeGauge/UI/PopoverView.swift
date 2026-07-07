@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 struct PopoverView: View {
   let model: UsageModel
   let onOpenSettings: () -> Void

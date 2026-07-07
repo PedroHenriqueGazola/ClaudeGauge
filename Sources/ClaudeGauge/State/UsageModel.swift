@@ -30,7 +30,7 @@ final class UsageModel {
     NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
     ) { [weak self] _ in
-      Task { await self?.refresh() }
+      Task { [weak self] in await self?.refresh() }
     }
   }
 
@@ -38,7 +38,7 @@ final class UsageModel {
     timer?.invalidate()
     timer = Timer.scheduledTimer(withTimeInterval: refreshIntervalSeconds, repeats: true) {
       [weak self] _ in
-      Task { await self?.refresh() }
+      Task { [weak self] in await self?.refresh() }
     }
   }
 
