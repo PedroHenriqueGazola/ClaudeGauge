@@ -39,18 +39,20 @@ final class NotificationCenterService: NSObject, UNUserNotificationCenterDelegat
 
   func notify(_ event: ClaudeHookEvent) {
     guard isBundled else { return }
-    let (title, session, fallbackBody) = presentation(for: event)
-    notify(title: title, body: session.title ?? fallbackBody, subtitle: session.project)
+    let content = content(for: event)
+    notify(title: content.title, body: content.body, subtitle: content.subtitle)
   }
 
-  private func presentation(for event: ClaudeHookEvent)
-    -> (title: String, session: ClaudeSession, fallbackBody: String)
+  private func content(for event: ClaudeHookEvent)
+    -> (title: String, subtitle: String?, body: String)
   {
     switch event {
     case .finished(let session):
-      return ("Claude terminou", session, "Resposta pronta")
+      return ("Claude terminou", session.project, session.title ?? "Resposta pronta")
     case .needsAttention(let session):
-      return ("Claude precisa de você", session, "Esperando sua resposta")
+      return (
+        "Claude precisa de você", session.project,
+        session.detail ?? session.title ?? "Esperando sua resposta")
     }
   }
 
