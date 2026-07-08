@@ -37,6 +37,7 @@ final class UsageModel {
     Task { await refresh() }
     scheduleTimer()
     sessionRegistry.start()
+    syncAttentionHook()
     NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
     ) { [weak self] _ in
@@ -46,6 +47,13 @@ final class UsageModel {
 
   func notifyClaudeHook(_ event: ClaudeHookEvent) {
     notifier.notify(event)
+  }
+
+  // Reaplica o hook de "precisa de você" no launch pra manter o caminho do
+  // script (dentro do .app) válido caso o app tenha sido movido/atualizado.
+  private func syncAttentionHook() {
+    guard UserDefaults.standard.bool(forKey: "notifyOnAttention") else { return }
+    ClaudeHookInstaller.setNotificationHook(enabled: true)
   }
 
   func scheduleTimer() {

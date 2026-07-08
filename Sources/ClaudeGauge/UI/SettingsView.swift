@@ -13,6 +13,7 @@ struct SettingsView: View {
   @AppStorage("notifyAt90") private var notifyAt90 = true
   @AppStorage("notifyAt95") private var notifyAt95 = true
   @AppStorage("notifyOnTurnEnd") private var notifyOnTurnEnd = true
+  @AppStorage("notifyOnAttention") private var notifyOnAttention = false
   @State private var launchAtLogin = false
   @State private var notificationsDenied = false
 
@@ -51,6 +52,14 @@ struct SettingsView: View {
       Section("Claude Code") {
         Toggle("Avisar quando terminar de responder", isOn: $notifyOnTurnEnd)
           .disabled(!isBundled)
+        Toggle("Avisar quando precisar de você", isOn: $notifyOnAttention)
+          .onChange(of: notifyOnAttention) { _, newValue in
+            ClaudeHookInstaller.setNotificationHook(enabled: newValue)
+          }
+          .disabled(!isBundled)
+        Text("Configura um hook do Claude Code pra avisar em pedidos de permissão e quando ele fica esperando você.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
       }
 
       Section("Sistema") {
