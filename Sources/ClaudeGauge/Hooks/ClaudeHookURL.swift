@@ -4,6 +4,7 @@ struct ClaudeSession: Equatable {
   let project: String?
   let title: String?
   var detail: String? = nil
+  var transcriptPath: String? = nil
 }
 
 enum ClaudeHookEvent: Equatable {
@@ -22,7 +23,8 @@ enum ClaudeHookURL {
     let session = ClaudeSession(
       project: nonEmpty(query["project"]),
       title: nonEmpty(query["title"]),
-      detail: nonEmpty(query["detail"]))
+      detail: nonEmpty(query["detail"]),
+      transcriptPath: nonEmpty(query["transcript"]))
 
     switch query["event"] {
     case "finished":

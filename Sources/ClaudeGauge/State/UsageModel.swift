@@ -46,7 +46,18 @@ final class UsageModel {
   }
 
   func notifyClaudeHook(_ event: ClaudeHookEvent) {
-    notifier.notify(event)
+    notifier.notify(enrich(event))
+  }
+
+  // Pro aviso de "precisa de você", tenta mostrar o que o Claude quer (ex.: o
+  // comando que ele pediu pra rodar), lido da última tool_use do transcript.
+  private func enrich(_ event: ClaudeHookEvent) -> ClaudeHookEvent {
+    guard case .needsAttention(var session) = event,
+      let path = session.transcriptPath,
+      let summary = ClaudeTranscript.pendingToolSummary(transcriptPath: path)
+    else { return event }
+    session.detail = summary
+    return .needsAttention(session)
   }
 
   // Reaplica o hook de "precisa de você" no launch pra manter o caminho do
