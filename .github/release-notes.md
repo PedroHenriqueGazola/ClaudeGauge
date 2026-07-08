@@ -1,9 +1,6 @@
 ## Novidades
 
-- 🐛 **Correção importante:** o app usava ~100% de CPU por causa de um loop ao redesenhar o ícone da menu bar. Atualize para esta versão.
-- 🗂️ **Painel de sessões:** veja no popover as sessões do Claude Code abertas — trabalhando / esperando você / ociosa — com projeto e título.
-- 🔔 **Aviso quando o Claude termina de responder** (com o título da sessão), sem depender dos hooks.
-- ⏱️ **Tempo até o reset da sessão de 5h** direto na menu bar.
+- 🔔 **Aviso quando o Claude precisa de você:** além do "terminou de responder", agora ele avisa quando o Claude **pede permissão** de ferramenta ou fica **esperando input** — mostrando no aviso o que ele precisa. Ative em *Configurações → Claude Code → "Avisar quando precisar de você"* (configura sozinho, sem mexer em arquivo nenhum).
 
 ## Instalar
 
