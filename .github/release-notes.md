@@ -1,6 +1,6 @@
 ## Novidades
 
-- 🔔 **Aviso quando o Claude precisa de você:** além do "terminou de responder", agora ele avisa quando o Claude **pede permissão** de ferramenta ou fica **esperando input** — mostrando no aviso o que ele precisa. Ative em *Configurações → Claude Code → "Avisar quando precisar de você"* (configura sozinho, sem mexer em arquivo nenhum).
+- 🔍 **O aviso de "precisa de você" agora mostra o que o Claude quer:** em vez de só "precisa de permissão", aparece o comando ou arquivo que ele está pedindo (ex.: `Bash: npm run deploy`, `Edit: main.swift`) — dá pra decidir num olhar. *(Requer o aviso "precisa de você" ligado em Configurações → Claude Code.)*
 
 ## Instalar
 
