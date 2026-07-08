@@ -16,15 +16,19 @@ enum AuthError: LocalizedError {
   }
 }
 
-@MainActor
 final class AuthProvider {
   private let credentialsReader = CredentialsReader()
   private let oauthService = OAuthService()
+  private let tokenStore: TokenStoring
 
   private var cachedAuth: ResolvedAuth?
   private var cacheValidUntil: Date = .distantPast
 
   private let fallbackCacheWindow: TimeInterval = 15 * 60
+
+  init(tokenStore: TokenStoring) {
+    self.tokenStore = tokenStore
+  }
 
   func currentAuth() async throws -> ResolvedAuth {
     if let cachedAuth, Date() < cacheValidUntil {
@@ -50,7 +54,7 @@ final class AuthProvider {
   }
 
   private func appTokenAuth() async throws -> (ResolvedAuth, Date)? {
-    guard let tokens = TokenStore.load() else { return nil }
+    guard let tokens = tokenStore.load() else { return nil }
     if !tokens.isExpired {
       return (resolved(from: tokens), validUntil(for: tokens))
     }
@@ -65,7 +69,7 @@ final class AuthProvider {
       expiresAt: refreshed.expiresAt,
       subscriptionType: refreshed.subscriptionType ?? tokens.subscriptionType,
       scopes: refreshed.scopes ?? tokens.scopes)
-    TokenStore.save(merged)
+    tokenStore.save(merged)
 
     return (resolved(from: merged), validUntil(for: merged))
   }

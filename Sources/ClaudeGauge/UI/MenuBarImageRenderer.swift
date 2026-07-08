@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeGaugeCore
 
 enum MenuBarImageRenderer {
   private enum Segment {

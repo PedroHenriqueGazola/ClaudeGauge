@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeGaugeCore
 import Foundation
 import Observation
 
@@ -20,10 +21,11 @@ final class LoginModel {
   var pastedCode: String = ""
 
   private let oauthService = OAuthService()
+  private let tokenStore = KeychainTokenStore()
   private var challenge: OAuthChallenge?
 
   init() {
-    let tokens = TokenStore.load()
+    let tokens = KeychainTokenStore().load()
     isLoggedIn = tokens != nil
     accountPlan = tokens?.subscriptionType
   }
@@ -44,7 +46,7 @@ final class LoginModel {
     phase = .exchanging
     do {
       let tokens = try await oauthService.exchange(pastedCode: pastedCode, challenge: challenge)
-      TokenStore.save(tokens)
+      tokenStore.save(tokens)
       isLoggedIn = true
       accountPlan = tokens.subscriptionType
       pastedCode = ""
@@ -63,7 +65,7 @@ final class LoginModel {
   }
 
   func logout() {
-    TokenStore.clear()
+    tokenStore.clear()
     isLoggedIn = false
     accountPlan = nil
     phase = .idle

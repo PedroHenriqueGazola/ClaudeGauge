@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(FoundationNetworking)
+  import FoundationNetworking
+#endif
+
 enum UsageAPIError: LocalizedError {
   case unauthorized
   case rateLimited(retryAfter: TimeInterval?)

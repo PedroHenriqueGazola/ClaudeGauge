@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeGaugeCore
 import SwiftUI
 
 @MainActor

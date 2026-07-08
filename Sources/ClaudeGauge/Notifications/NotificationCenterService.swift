@@ -1,3 +1,4 @@
+import ClaudeGaugeCore
 import Foundation
 import UserNotifications
 

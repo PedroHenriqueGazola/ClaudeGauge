@@ -1,6 +1,6 @@
 # ClaudeGauge
 
-App de menu bar pro macOS que mostra o uso do seu Claude (limite de sessão de 5h e semanal) direto na barra do sistema — sem precisar abrir `claude.ai/settings/usage` toda hora.
+App de menu bar pro macOS e Linux que mostra o uso do seu Claude (limite de sessão de 5h e semanal) direto na barra do sistema — sem precisar abrir `claude.ai/settings/usage` toda hora.
 
 - **Menu bar:** os dois limites de relance (`5h 81% ▬ · 7d 12% ▬`), com cor só na barra e texto que se adapta ao fundo claro/escuro
 - **Popover:** sessão (5h), semanal, Opus e Sonnet — cada um com % em destaque, barra de progresso e countdown até o reset
@@ -17,7 +17,7 @@ Na menu bar:
 
 ## Requisitos
 
-- macOS 14 (Sonoma) ou superior
+- macOS 14 (Sonoma) ou superior, ou Linux com bandeja de sistema (veja [Linux](#linux))
 - Uma conta Claude (Pro / Max / Team)
 
 ## Instalação
@@ -40,6 +40,27 @@ open ClaudeGauge.app
 ```
 
 Requer Xcode (Swift 5.9+). Pra desenvolvimento rápido, `swift run` também funciona (sem notificações / abrir-no-login, que precisam do `.app`).
+
+## Linux
+
+No Linux o app vira um ícone de bandeja (StatusNotifierItem) com o mesmo conteúdo do popover num menu: % de cada janela, countdown até o reset, notificações e configurações. Requer Swift 5.9+ e as libs de sistema:
+
+```bash
+sudo apt-get install libayatana-appindicator3-dev libnotify-dev
+```
+
+Compilar e instalar (binário em `~/.local/bin`, ícones e `.desktop` em `~/.local/share`):
+
+```bash
+git clone https://github.com/PedroHenriqueGazola/ClaudeGauge.git
+cd ClaudeGauge
+./scripts/install-linux.sh
+claudegauge
+```
+
+O login OAuth próprio (pra quem não usa o Claude Code) é pelo terminal: `claudegauge login`. O token fica em `~/.local/share/claudegauge/tokens.json` com permissão `600` — o mesmo modelo do `~/.claude/.credentials.json` do próprio Claude Code. Pra desconectar: `claudegauge logout` ou "Sair da conta" no menu.
+
+> **GNOME puro** não mostra ícones de bandeja por padrão — instale a extensão [AppIndicator Support](https://extensions.gnome.org/extension/615/appindicator-support/). KDE, XFCE, Cinnamon e afins funcionam de fábrica. No **WSLg** o suporte a bandeja é limitado e o ícone pode não aparecer.
 
 ## Autenticação
 

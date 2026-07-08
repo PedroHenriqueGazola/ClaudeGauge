@@ -1,4 +1,6 @@
+import ClaudeGaugeCore
 import SwiftUI
+
 
 func resetText(for date: Date?) -> String {
   guard let date else { return "" }
