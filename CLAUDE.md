@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-ClaudeGauge is a macOS menu-bar app (Swift Package Manager, SwiftUI + AppKit) that shows your Claude usage limits (5h session + weekly). UI strings and code comments are in Portuguese.
+ClaudeGauge is a macOS menu-bar / Linux system-tray app (Swift Package Manager) that shows your Claude usage limits (5h session + weekly). UI strings and code comments are in Portuguese.
 
 ## Commands
 
@@ -22,12 +22,12 @@ Releases are published by pushing a `v*` git tag (`.github/workflows/release.yml
 
 ## Architecture
 
-Single executable target `Sources/ClaudeGauge`. Runs as an `.accessory` app (no dock icon).
+**Package layout.** Portable logic (auth, usage API, models, `UsageEngine`, `ThresholdEvaluator`) lives in the `ClaudeGaugeCore` library, shared by both platforms. `Sources/ClaudeGauge` is the **macOS** `.executableTarget` (SwiftUI + AppKit, runs as an `.accessory` app — no dock icon); `Sources/ClaudeGaugeLinux` is the **Linux** `claudegauge` executable (GTK + Ayatana AppIndicator tray + libnotify, via the `CAyatanaAppIndicator`/`CNotify` system-library shims). `Package.swift` gates the platform targets with `#if os(macOS)` / `#else`. Token storage is abstracted behind `TokenStoring` — `KeychainTokenStore` (macOS) vs `FileTokenStore` (Linux: XDG `~/.local/share/claudegauge/tokens.json`, perms `0600`). The **Spend / "Gastos"** feature is currently macOS-only (`Sources/ClaudeGauge/Spend/`); its aggregator is portable and could move to Core to give the Linux tray the tab too.
 
-**Refresh loop.** `ClaudeGaugeApp` installs `AppDelegate`, which owns the `NSStatusItem` + `NSPopover` + settings `NSWindow`. `UsageModel` (`@MainActor @Observable` singleton) is the core: a timer + wake-from-sleep observer call `refresh()`, which does `AuthProvider.currentAuth()` → `UsageAPIClient.fetchUsage()` → publishes a `UsageSnapshot`. `AppDelegate.observeSnapshot()` uses `withObservationTracking` to re-render the menu-bar image whenever the snapshot changes. `refresh()` self-throttles via `nextAllowedFetch` (30s min, or `Retry-After`/300s after a 429); pass `force: true` to bypass.
+**Refresh loop.** `ClaudeGaugeApp` installs `AppDelegate`, which owns the `NSStatusItem` + `NSPopover` + settings `NSWindow`. `UsageModel` (macOS `@MainActor @Observable` singleton) is a thin view-model that delegates to `UsageEngine` (an `actor` in Core): a timer + wake-from-sleep observer call `refresh()`, which awaits `engine.refresh()` → `AuthProvider.currentAuth()` → `UsageAPIClient.fetchUsage()` → publishes a `UsageSnapshot`. `AppDelegate.observeSnapshot()` uses `withObservationTracking` to re-render the menu-bar image whenever the snapshot changes. The **engine** self-throttles via `nextAllowedFetch` (30s min, or `Retry-After`/300s after a 429); pass `force: true` to bypass. On Linux, `TrayApp` drives the same `UsageEngine`.
 
 **Auth resolution** (`AuthProvider.resolve`, in priority order):
-1. The app's **own** OAuth tokens from the Keychain (`TokenStore`, service `com.pedrogazola.claudegauge.oauth`), auto-refreshed when expired.
+1. The app's **own** OAuth tokens via the injected `TokenStoring` (macOS `KeychainTokenStore`, service `com.pedrogazola.claudegauge.oauth`; Linux `FileTokenStore`), auto-refreshed when expired.
 2. Fallback to **Claude Code's** credentials via `CredentialsReader`: env var `CLAUDE_CODE_OAUTH_TOKEN`, else `~/.claude/.credentials.json` (path overridable with `CLAUDE_CONFIG_DIR`). It deliberately does **not** read the CLI's Keychain item — cross-app Keychain access triggers a macOS password prompt on every CLI token refresh.
 
 **OAuth** (`OAuthService`, driven by `LoginModel`) is a PKCE flow with a manual paste-the-code step (no loopback server). Two constraints are load-bearing and documented inline: it reuses Claude Code's public `clientID` (the only client the usage endpoint accepts), and sends `User-Agent: axios/1.13.6` to the token endpoint to dodge a bogus 429.
@@ -46,6 +46,8 @@ Single executable target `Sources/ClaudeGauge`. Runs as an `.accessory` app (no 
 The notification body shows the session's `aiTitle` (parsed from the transcript, cached per session) and the project as subtitle. Since notifications are denied by default until the user allows them once, `SettingsView` shows a warning + "open settings" button when `authorizationStatus == .denied`, and `NotificationCenterService` implements `willPresent` so the banner shows even when the app is foreground. (A click-to-focus-the-terminal feature was attempted and dropped: a `.accessory` app can't bring another app forward on macOS 14, and Warp exposes neither AppleScript nor an accessibility window tree.)
 
 Set `CLAUDEGAUGE_DEBUG=1` to log parsed snapshot percentages, received hook URLs, and notification-scheduling results to stderr.
+
+**Spend tracking (`Sources/ClaudeGauge/Spend/`).** The popover's **"Gastos"** tab estimates token spend by model and by project, computed entirely from the local transcripts — **there is no Anthropic API for subscription cost.** (Confirmed: Claude Code's own `/usage` computes the $ "locally from token counts / local session history"; the Admin Usage & Cost API — `/v1/organizations/usage_report/messages`, `/v1/organizations/cost_report` — needs an `sk-ant-admin01-…` key + a Console org and only covers **API-key-billed** usage, not subscription/OAuth usage. The Claude Code Analytics API is org-admin-scoped too. So the local approach is the only path here, and it mirrors what the CLI does — relevant only for a future B2B/team version.) `SpendAggregator` reads `~/.claude/projects/**/*.jsonl`, pre-filters files by mtime to the window and re-checks each line's `timestamp`, sums `message.usage` tokens (input/output/cache-creation/cache-read) per `message.model` and per `cwd`, and multiplies by a hardcoded price table (`ModelCatalog` in `ModelPricing.swift`) to get an **"equivalent-API" USD estimate** — cache write priced by TTL from the `cache_creation` breakdown (5m = 1.25×, 1h = 2× input; read = 0.1×), `<synthetic>` and unknown models skipped (their `pricing(forModel:)` is nil). It runs off the MainActor (`UsageModel.refreshSpend(periodDays:force:)` — 10-min throttle per period, cancel-and-replace via `spendTask` on period change, publishes `SpendReport` + `isComputingSpend`). `PopoverView` is split into **"Uso"** / **"Gastos"** tabs; the spend tab has a period filter (24h/7d/30d, persisted in the `spendPeriodDays` UserDefault) and a pulsing `SpendSkeleton` while computing. The popover forces `.preferredColorScheme(.dark)` so the system segmented control matches the fixed-dark `Palette`.
 
 ## Code signing (dev)
 

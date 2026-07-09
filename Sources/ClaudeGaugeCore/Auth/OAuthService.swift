@@ -162,6 +162,9 @@ public struct OAuthService {
     randomData(byteCount: byteCount).map { String(format: "%02x", $0) }.joined()
   }
 
+  // SystemRandomNumberGenerator é criptograficamente seguro em todas as
+  // plataformas (getrandom/arc4random) — vale pro verifier/state do PKCE. Usado
+  // no lugar do SecRandomCopyBytes pra não depender do Security (ausente no Linux).
   private static func randomData(byteCount: Int) -> Data {
     var generator = SystemRandomNumberGenerator()
     let bytes = (0..<byteCount).map { _ in UInt8.random(in: .min ... .max, using: &generator) }

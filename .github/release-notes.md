@@ -1,6 +1,11 @@
 ## Novidades
 
-- 🔍 **O aviso de "precisa de você" agora mostra o que o Claude quer:** em vez de só "precisa de permissão", aparece o comando ou arquivo que ele está pedindo (ex.: `Bash: npm run deploy`, `Edit: main.swift`) — dá pra decidir num olhar. *(Requer o aviso "precisa de você" ligado em Configurações → Claude Code.)*
+- 💸 **Nova aba "Gastos":** veja **quais modelos e quais projetos mais consumiram** nos últimos dias, com um **custo equivalente estimado** (o que custaria se fosse pago por token — assinatura não cobra por token, mas é a melhor forma de comparar quem gastou mais).
+- 📅 **Filtro de período:** 24h / 7 dias / 30 dias.
+- ⏳ **Skeleton de carregamento** enquanto os dados são calculados.
+- 🔒 **Tudo local:** o cálculo lê os transcripts do próprio Claude Code na sua máquina — nada é enviado pra fora.
+
+O popover agora tem duas abas: **Uso** (limites de 5h/semanal + sessões abertas) e **Gastos**.
 
 ## Instalar
 
