@@ -1,10 +1,9 @@
 ## Novidades
 
-- 🐧 **Suporte a Linux!** O ClaudeGauge agora roda como ícone de bandeja no Linux (GTK + Ayatana AppIndicator): os mesmos limites de uso, notificações de threshold, login OAuth próprio (`claudegauge login`), abrir-no-login e o submenu de **Gastos**. Obrigado ao [@CloudyWSA](https://github.com/CloudyWSA) pelo port (#3).
-- 💸 **Gastos no Linux:** o submenu "Gastos" mostra o custo estimado dos últimos 7 dias por modelo e por projeto, direto na bandeja.
-- 🧱 Por dentro: a lógica portável (auth, API, uso, gastos) virou um módulo `ClaudeGaugeCore` compartilhado entre macOS e Linux.
+- 🐧 **Binário do Linux pronto pra baixar:** agora tem o `claudegauge-linux-x86_64.tar.gz` aqui no release — não precisa mais compilar da fonte. O binário traz a stdlib do Swift embutida (só precisa das libs de sistema). Instalação: baixe, `tar -xzf`, `./install.sh`.
+- 📖 README novo, cobrindo tudo: abas **Uso** / **Gastos**, sessões do Claude Code, notificações e o suporte a Linux.
 
-No macOS nada muda em relação ao v0.3.0 (aba **Uso** + aba **Gastos** com filtro de período 24h/7d/30d).
+Continua tudo do v0.4.0: **suporte a Linux** (app de bandeja), **Gastos** por modelo e projeto (macOS com filtro 24h/7d/30d; Linux com janela de 7 dias na bandeja), e as abas **Uso** / **Gastos** no macOS.
 
 ## Instalar (macOS)
 
@@ -18,14 +17,12 @@ Requer macOS 14+ e uma conta Claude (Pro / Max / Team).
 
 ## Instalar (Linux)
 
-O binário do Linux é compilado da fonte (precisa de Swift 5.9+ e das libs de sistema):
-
 ```bash
 sudo apt-get install libayatana-appindicator3-dev libnotify-dev
-git clone https://github.com/PedroHenriqueGazola/ClaudeGauge.git
-cd ClaudeGauge
-./scripts/install-linux.sh
+tar -xzf claudegauge-linux-x86_64.tar.gz
+cd claudegauge-linux-x86_64
+./install.sh
 claudegauge
 ```
 
-Login próprio (opcional, pra quem não usa o Claude Code): `claudegauge login`. **GNOME puro** precisa da extensão [AppIndicator Support](https://extensions.gnome.org/extension/615/appindicator-support/); KDE/XFCE/Cinnamon funcionam de fábrica.
+Login próprio (opcional, sem Claude Code): `claudegauge login`. **GNOME puro** precisa da extensão [AppIndicator Support](https://extensions.gnome.org/extension/615/appindicator-support/); KDE/XFCE/Cinnamon funcionam de fábrica.

@@ -9,8 +9,25 @@ permissions:
   contents: write
 
 jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+    container: swift:6.1-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: apt-get update && apt-get install -y libayatana-appindicator3-dev libnotify-dev
+      - name: Build & package
+        env:
+          APP_VERSION: ${{ github.ref_name }}
+        run: ./scripts/make-linux-dist.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-dist
+          path: claudegauge-linux-x86_64.tar.gz
+
   release:
     runs-on: macos-14
+    needs: build-linux
     steps:
       - uses: actions/checkout@v4
 
@@ -22,10 +39,16 @@ jobs:
       - name: Package
         run: ditto -c -k --keepParent ClaudeGauge.app ClaudeGauge.zip
 
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-dist
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" ClaudeGauge.zip \
+          gh release create "$GITHUB_REF_NAME" \
+            ClaudeGauge.zip claudegauge-linux-x86_64.tar.gz \
             --title "ClaudeGauge $GITHUB_REF_NAME" \
             --notes-file .github/release-notes.md
