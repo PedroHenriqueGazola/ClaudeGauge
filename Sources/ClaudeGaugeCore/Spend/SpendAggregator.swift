@@ -5,8 +5,8 @@ import Foundation
 // equivalente API. Pré-filtra por mtime pra só abrir arquivos recentes e ainda
 // confere o timestamp de cada linha pra respeitar o limite da janela. Roda em
 // background (fora do MainActor) — o resultado é publicado pelo UsageModel.
-enum SpendAggregator {
-  static func report(projectsDirectory: URL, windowDays: Int, now: Date) -> SpendReport {
+public enum SpendAggregator {
+  public static func report(projectsDirectory: URL, windowDays: Int, now: Date) -> SpendReport {
     let cutoff = now.addingTimeInterval(-Double(windowDays) * 86_400)
     var byModel: [String: Accumulator] = [:]
     var byProject: [String: Accumulator] = [:]

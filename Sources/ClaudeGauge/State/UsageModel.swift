@@ -111,7 +111,7 @@ final class UsageModel {
     isComputingSpend = true
     nextAllowedSpendRefresh = Date().addingTimeInterval(600)
 
-    let projectsDirectory = TranscriptWatcher.defaultProjectsDirectory
+    let projectsDirectory = ClaudeConfig.projectsDirectory
     spendTask = Task { [weak self] in
       let report = await Task.detached(priority: .utility) {
         SpendAggregator.report(

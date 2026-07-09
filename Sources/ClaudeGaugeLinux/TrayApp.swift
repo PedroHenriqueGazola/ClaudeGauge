@@ -16,6 +16,15 @@ final class TrayApp {
   private var accountItem: UnsafeMutablePointer<GtkWidget>?
   private var loginItem: UnsafeMutablePointer<GtkWidget>?
 
+  private var spendTotalItem: UnsafeMutablePointer<GtkWidget>?
+  private var spendModelsHeader: UnsafeMutablePointer<GtkWidget>?
+  private var spendProjectsHeader: UnsafeMutablePointer<GtkWidget>?
+  private var spendModelItems: [UnsafeMutablePointer<GtkWidget>?] = []
+  private var spendProjectItems: [UnsafeMutablePointer<GtkWidget>?] = []
+  private var nextAllowedSpendRefresh: Date = .distantPast
+  private let spendWindowDays = 7
+  private let spendSlotCount = 3
+
   private static let updatedFormatter: DateFormatter = {
     let formatter = DateFormatter()
     formatter.dateStyle = .none
@@ -68,6 +77,10 @@ final class TrayApp {
       usageItems.append(item)
     }
 
+    let spendItem = gtk_menu_item_new_with_label("Gastos (\(spendWindowDays) dias)")
+    gtk_menu_item_set_submenu(gtkCast(spendItem, to: GtkMenuItem.self), buildSpendMenu())
+    appendItem(menu, spendItem)
+
     appendItem(menu, gtk_separator_menu_item_new())
 
     statusItem = gtk_menu_item_new_with_label("carregando…")
@@ -105,6 +118,44 @@ final class TrayApp {
     appendItem(menu, quitItem)
 
     return menu
+  }
+
+  private func buildSpendMenu() -> UnsafeMutablePointer<GtkWidget>? {
+    let menu = gtk_menu_new()
+
+    spendTotalItem = gtk_menu_item_new_with_label("calculando…")
+    gtk_widget_set_sensitive(spendTotalItem, 0)
+    appendItem(menu, spendTotalItem)
+
+    appendItem(menu, gtk_separator_menu_item_new())
+    spendModelsHeader = spendHeader("Modelos", in: menu)
+    spendModelItems = spendSlots(in: menu)
+
+    appendItem(menu, gtk_separator_menu_item_new())
+    spendProjectsHeader = spendHeader("Projetos", in: menu)
+    spendProjectItems = spendSlots(in: menu)
+
+    return menu
+  }
+
+  private func spendHeader(_ title: String, in menu: UnsafeMutablePointer<GtkWidget>?)
+    -> UnsafeMutablePointer<GtkWidget>?
+  {
+    let item = gtk_menu_item_new_with_label(title)
+    gtk_widget_set_sensitive(item, 0)
+    appendItem(menu, item)
+    return item
+  }
+
+  private func spendSlots(in menu: UnsafeMutablePointer<GtkWidget>?)
+    -> [UnsafeMutablePointer<GtkWidget>?]
+  {
+    (0..<spendSlotCount).map { _ in
+      let item = gtk_menu_item_new_with_label("—")
+      gtk_widget_set_sensitive(item, 0)
+      appendItem(menu, item)
+      return item
+    }
   }
 
   private func buildSettingsMenu() -> UnsafeMutablePointer<GtkWidget>? {
@@ -200,6 +251,7 @@ final class TrayApp {
       guard let result = await self.engine.refresh(force: force) else { return }
       runOnMainLoop { self.apply(result) }
     }
+    refreshSpend(force: force)
   }
 
   private func apply(_ result: UsageRefreshResult) {
@@ -209,6 +261,48 @@ final class TrayApp {
     updateAccount()
     if result.errorMessage == nil, let snapshot = result.snapshot {
       notifier.evaluate(snapshot: snapshot, thresholds: settingsStore.thresholds)
+    }
+  }
+
+  // Agrega os transcripts locais (lê arquivos) fora do main loop e atualiza o
+  // submenu de Gastos. Auto-limita a cada 10min; force ignora o limite.
+  private func refreshSpend(force: Bool) {
+    if !force && Date() < nextAllowedSpendRefresh { return }
+    nextAllowedSpendRefresh = Date().addingTimeInterval(600)
+    let windowDays = spendWindowDays
+    Task { [weak self] in
+      let report = await Task.detached(priority: .utility) {
+        SpendAggregator.report(
+          projectsDirectory: ClaudeConfig.projectsDirectory, windowDays: windowDays, now: Date())
+      }.value
+      guard let self else { return }
+      runOnMainLoop { self.updateSpendMenu(report) }
+    }
+  }
+
+  private func updateSpendMenu(_ report: SpendReport) {
+    let total =
+      report.isEmpty ? "Sem gastos no período" : "Total: ≈ \(formatCost(report.totalCost))"
+    gtk_menu_item_set_label(gtkCast(spendTotalItem, to: GtkMenuItem.self), total)
+    fillSpendSlots(spendModelItems, header: spendModelsHeader, entries: report.models)
+    fillSpendSlots(spendProjectItems, header: spendProjectsHeader, entries: report.projects)
+  }
+
+  private func fillSpendSlots(
+    _ slots: [UnsafeMutablePointer<GtkWidget>?], header: UnsafeMutablePointer<GtkWidget>?,
+    entries: [SpendEntry]
+  ) {
+    gtk_widget_set_visible(header, entries.isEmpty ? 0 : 1)
+    for (index, slot) in slots.enumerated() {
+      guard index < entries.count else {
+        gtk_widget_set_visible(slot, 0)
+        continue
+      }
+      let entry = entries[index]
+      gtk_menu_item_set_label(
+        gtkCast(slot, to: GtkMenuItem.self),
+        "\(entry.name) — \(formatCost(entry.estimatedCost)) · \(formatTokens(entry.totalTokens)) tok")
+      gtk_widget_set_visible(slot, 1)
     }
   }
 

@@ -9,20 +9,6 @@ func elapsedText(since date: Date) -> String {
   return "\(minutes / 60)h"
 }
 
-func formatCost(_ value: Double) -> String {
-  if value <= 0 { return "$0" }
-  if value < 0.01 { return "<$0.01" }
-  return String(format: "$%.2f", value)
-}
-
-func formatTokens(_ count: Int) -> String {
-  let value = Double(count)
-  if value >= 1_000_000_000 { return String(format: "%.1fB", value / 1_000_000_000) }
-  if value >= 1_000_000 { return String(format: "%.0fM", value / 1_000_000) }
-  if value >= 1_000 { return String(format: "%.0fK", value / 1_000) }
-  return "\(count)"
-}
-
 // Mostra o custo estimado em destaque e os tokens como detalhe secundário —
 // tokens crus enganam (cache read é volumoso mas barato), o $ pondera os tipos.
 struct SpendRow: View {
