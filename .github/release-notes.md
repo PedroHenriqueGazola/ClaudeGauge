@@ -1,13 +1,12 @@
 ## Novidades
 
-- 💸 **Nova aba "Gastos":** veja **quais modelos e quais projetos mais consumiram** nos últimos dias, com um **custo equivalente estimado** (o que custaria se fosse pago por token — assinatura não cobra por token, mas é a melhor forma de comparar quem gastou mais).
-- 📅 **Filtro de período:** 24h / 7 dias / 30 dias.
-- ⏳ **Skeleton de carregamento** enquanto os dados são calculados.
-- 🔒 **Tudo local:** o cálculo lê os transcripts do próprio Claude Code na sua máquina — nada é enviado pra fora.
+- 🐧 **Suporte a Linux!** O ClaudeGauge agora roda como ícone de bandeja no Linux (GTK + Ayatana AppIndicator): os mesmos limites de uso, notificações de threshold, login OAuth próprio (`claudegauge login`), abrir-no-login e o submenu de **Gastos**. Obrigado ao [@CloudyWSA](https://github.com/CloudyWSA) pelo port (#3).
+- 💸 **Gastos no Linux:** o submenu "Gastos" mostra o custo estimado dos últimos 7 dias por modelo e por projeto, direto na bandeja.
+- 🧱 Por dentro: a lógica portável (auth, API, uso, gastos) virou um módulo `ClaudeGaugeCore` compartilhado entre macOS e Linux.
 
-O popover agora tem duas abas: **Uso** (limites de 5h/semanal + sessões abertas) e **Gastos**.
+No macOS nada muda em relação ao v0.3.0 (aba **Uso** + aba **Gastos** com filtro de período 24h/7d/30d).
 
-## Instalar
+## Instalar (macOS)
 
 1. Baixe o `ClaudeGauge.zip` abaixo, descompacte e mova **ClaudeGauge.app** para `/Aplicativos`.
 2. Primeira abertura: **botão direito no app → Abrir** (ou *Ajustes → Privacidade e Segurança → Abrir Assim Mesmo*). O app não é notarizado (projeto gratuito).
@@ -16,3 +15,17 @@ O popover agora tem duas abas: **Uso** (limites de 5h/semanal + sessões abertas
 Para receber as notificações, autorize o ClaudeGauge em *Ajustes do Sistema → Notificações* (o app também pede na primeira execução).
 
 Requer macOS 14+ e uma conta Claude (Pro / Max / Team).
+
+## Instalar (Linux)
+
+O binário do Linux é compilado da fonte (precisa de Swift 5.9+ e das libs de sistema):
+
+```bash
+sudo apt-get install libayatana-appindicator3-dev libnotify-dev
+git clone https://github.com/PedroHenriqueGazola/ClaudeGauge.git
+cd ClaudeGauge
+./scripts/install-linux.sh
+claudegauge
+```
+
+Login próprio (opcional, pra quem não usa o Claude Code): `claudegauge login`. **GNOME puro** precisa da extensão [AppIndicator Support](https://extensions.gnome.org/extension/615/appindicator-support/); KDE/XFCE/Cinnamon funcionam de fábrica.
