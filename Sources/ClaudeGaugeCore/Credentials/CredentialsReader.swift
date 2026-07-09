@@ -1,9 +1,9 @@
 import Foundation
 
-struct ClaudeCredentials {
-  let accessToken: String
-  let expiresAt: Date?
-  let subscriptionType: String?
+public struct ClaudeCredentials {
+  public let accessToken: String
+  public let expiresAt: Date?
+  public let subscriptionType: String?
 }
 
 // Lê as credenciais do Claude Code só de fontes silenciosas: a env var e o
@@ -11,8 +11,10 @@ struct ClaudeCredentials {
 // Code de propósito — acesso cross-app dispara o diálogo de senha do macOS a
 // cada renovação de token do CLI (o Claude Code reescreve o item e reseta a
 // permissão). Pra quem não tem o arquivo, o caminho é o login OAuth do app.
-struct CredentialsReader {
-  func read() -> ClaudeCredentials? {
+public struct CredentialsReader {
+  public init() {}
+
+  public func read() -> ClaudeCredentials? {
     if let token = environmentToken() {
       return ClaudeCredentials(accessToken: token, expiresAt: nil, subscriptionType: nil)
     }

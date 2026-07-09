@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-ClaudeGauge is a macOS menu-bar app (Swift Package Manager, SwiftUI + AppKit) that shows your Claude usage limits (5h session + weekly). UI strings and code comments are in Portuguese.
+ClaudeGauge is a macOS menu-bar / Linux system-tray app (Swift Package Manager) that shows your Claude usage limits (5h session + weekly). UI strings and code comments are in Portuguese.
 
 ## Commands
 
@@ -22,12 +22,12 @@ Releases are published by pushing a `v*` git tag (`.github/workflows/release.yml
 
 ## Architecture
 
-Single executable target `Sources/ClaudeGauge`. Runs as an `.accessory` app (no dock icon).
+**Package layout.** Portable logic (auth, usage API, models, `UsageEngine`, `ThresholdEvaluator`) lives in the `ClaudeGaugeCore` library, shared by both platforms. `Sources/ClaudeGauge` is the **macOS** `.executableTarget` (SwiftUI + AppKit, runs as an `.accessory` app — no dock icon); `Sources/ClaudeGaugeLinux` is the **Linux** `claudegauge` executable (GTK + Ayatana AppIndicator tray + libnotify, via the `CAyatanaAppIndicator`/`CNotify` system-library shims). `Package.swift` gates the platform targets with `#if os(macOS)` / `#else`. Token storage is abstracted behind `TokenStoring` — `KeychainTokenStore` (macOS) vs `FileTokenStore` (Linux: XDG `~/.local/share/claudegauge/tokens.json`, perms `0600`). The **Spend / "Gastos"** feature lives in `ClaudeGaugeCore/Spend/` (shared): `SpendAggregator` reads `~/.claude/projects` (via `ClaudeConfig.projectsDirectory`) and prices tokens with `ModelCatalog`, returning a `SpendReport`. macOS renders it as the popover's "Gastos" tab (24h/7d/30d filter + skeleton); the Linux `TrayApp` renders a "Gastos" submenu (fixed 7-day window). `formatCost`/`formatTokens`/`resetText` are shared in `ClaudeGaugeCore/Models/UsageFormatting.swift`.
 
-**Refresh loop.** `ClaudeGaugeApp` installs `AppDelegate`, which owns the `NSStatusItem` + `NSPopover` + settings `NSWindow`. `UsageModel` (`@MainActor @Observable` singleton) is the core: a timer + wake-from-sleep observer call `refresh()`, which does `AuthProvider.currentAuth()` → `UsageAPIClient.fetchUsage()` → publishes a `UsageSnapshot`. `AppDelegate.observeSnapshot()` uses `withObservationTracking` to re-render the menu-bar image whenever the snapshot changes. `refresh()` self-throttles via `nextAllowedFetch` (30s min, or `Retry-After`/300s after a 429); pass `force: true` to bypass.
+**Refresh loop.** `ClaudeGaugeApp` installs `AppDelegate`, which owns the `NSStatusItem` + `NSPopover` + settings `NSWindow`. `UsageModel` (macOS `@MainActor @Observable` singleton) is a thin view-model that delegates to `UsageEngine` (an `actor` in Core): a timer + wake-from-sleep observer call `refresh()`, which awaits `engine.refresh()` → `AuthProvider.currentAuth()` → `UsageAPIClient.fetchUsage()` → publishes a `UsageSnapshot`. `AppDelegate.observeSnapshot()` uses `withObservationTracking` to re-render the menu-bar image whenever the snapshot changes. The **engine** self-throttles via `nextAllowedFetch` (30s min, or `Retry-After`/300s after a 429); pass `force: true` to bypass. On Linux, `TrayApp` drives the same `UsageEngine`.
 
 **Auth resolution** (`AuthProvider.resolve`, in priority order):
-1. The app's **own** OAuth tokens from the Keychain (`TokenStore`, service `com.pedrogazola.claudegauge.oauth`), auto-refreshed when expired.
+1. The app's **own** OAuth tokens via the injected `TokenStoring` (macOS `KeychainTokenStore`, service `com.pedrogazola.claudegauge.oauth`; Linux `FileTokenStore`), auto-refreshed when expired.
 2. Fallback to **Claude Code's** credentials via `CredentialsReader`: env var `CLAUDE_CODE_OAUTH_TOKEN`, else `~/.claude/.credentials.json` (path overridable with `CLAUDE_CONFIG_DIR`). It deliberately does **not** read the CLI's Keychain item — cross-app Keychain access triggers a macOS password prompt on every CLI token refresh.
 
 **OAuth** (`OAuthService`, driven by `LoginModel`) is a PKCE flow with a manual paste-the-code step (no loopback server). Two constraints are load-bearing and documented inline: it reuses Claude Code's public `clientID` (the only client the usage endpoint accepts), and sends `User-Agent: axios/1.13.6` to the token endpoint to dodge a bogus 429.

@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import ClaudeGaugeCore
 import SwiftUI
 
 @main

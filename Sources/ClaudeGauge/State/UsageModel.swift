@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeGaugeCore
 import Foundation
 import Observation
 
@@ -14,12 +15,10 @@ final class UsageModel {
   private(set) var isRefreshing = false
   private(set) var isStale = false
 
-  private let authProvider = AuthProvider()
-  private let apiClient = UsageAPIClient()
+  private let engine = UsageEngine(tokenStore: KeychainTokenStore())
   private let notifier = NotificationCenterService()
   let sessionRegistry: SessionRegistry
   private var timer: Timer?
-  private var nextAllowedFetch: Date = .distantPast
   private var nextAllowedSpendRefresh: Date = .distantPast
   private var spendTask: Task<Void, Never>?
 
@@ -86,25 +85,17 @@ final class UsageModel {
   }
 
   func refresh(force: Bool = false) async {
-    if !force && Date() < nextAllowedFetch { return }
     if isRefreshing { return }
 
     isRefreshing = true
     defer { isRefreshing = false }
 
-    do {
-      let auth = try await authProvider.currentAuth()
-      let snapshot = try await apiClient.fetchUsage(
-        accessToken: auth.accessToken,
-        subscriptionType: auth.subscriptionType)
-      self.snapshot = snapshot
-      errorMessage = nil
-      isStale = false
-      nextAllowedFetch = Date().addingTimeInterval(30)
+    guard let result = await engine.refresh(force: force) else { return }
+    snapshot = result.snapshot
+    errorMessage = result.errorMessage
+    isStale = result.isStale
+    if result.errorMessage == nil, let snapshot = result.snapshot {
       notifier.evaluate(snapshot: snapshot)
-      logDebug(snapshot)
-    } catch {
-      handle(error)
     }
   }
 
@@ -120,7 +111,7 @@ final class UsageModel {
     isComputingSpend = true
     nextAllowedSpendRefresh = Date().addingTimeInterval(600)
 
-    let projectsDirectory = TranscriptWatcher.defaultProjectsDirectory
+    let projectsDirectory = ClaudeConfig.projectsDirectory
     spendTask = Task { [weak self] in
       let report = await Task.detached(priority: .utility) {
         SpendAggregator.report(
@@ -130,32 +121,5 @@ final class UsageModel {
       self.spendReport = report
       self.isComputingSpend = false
     }
-  }
-
-  private func logDebug(_ snapshot: UsageSnapshot) {
-    guard ProcessInfo.processInfo.environment["CLAUDEGAUGE_DEBUG"] != nil else { return }
-    func describe(_ label: String, _ window: UsageWindow?) -> String {
-      guard let window else { return "\(label)=n/a" }
-      return "\(label)=\(Int(window.percent.rounded()))%"
-    }
-    let parts = [
-      describe("5h", snapshot.fiveHour),
-      describe("7d", snapshot.sevenDay),
-      describe("opus", snapshot.opusWeekly),
-      describe("sonnet", snapshot.sonnetWeekly),
-      "plan=\(snapshot.subscriptionType ?? "n/a")",
-    ]
-    FileHandle.standardError.write(Data(("[ClaudeGauge] " + parts.joined(separator: " ") + "\n").utf8))
-  }
-
-  private func handle(_ error: Error) {
-    isStale = snapshot != nil
-    if case UsageAPIError.rateLimited(let retryAfter) = error {
-      nextAllowedFetch = Date().addingTimeInterval(retryAfter ?? 300)
-    }
-    if case UsageAPIError.unauthorized = error {
-      authProvider.invalidate()
-    }
-    errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
   }
 }

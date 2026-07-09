@@ -1,19 +1,27 @@
-import CryptoKit
 import Foundation
-import Security
 
-struct OAuthChallenge {
-  let verifier: String
-  let state: String
-  let authorizeURL: URL
+#if canImport(FoundationNetworking)
+  import FoundationNetworking
+#endif
+
+#if canImport(CryptoKit)
+  import CryptoKit
+#else
+  import Crypto
+#endif
+
+public struct OAuthChallenge {
+  public let verifier: String
+  public let state: String
+  public let authorizeURL: URL
 }
 
-enum OAuthError: LocalizedError {
+public enum OAuthError: LocalizedError {
   case invalidPastedCode
   case stateMismatch
   case exchangeFailed(String)
 
-  var errorDescription: String? {
+  public var errorDescription: String? {
     switch self {
     case .invalidPastedCode:
       return "Código inválido. Cole o código exibido pela página do Claude."
@@ -27,7 +35,7 @@ enum OAuthError: LocalizedError {
 
 // Reusa o client_id público do Claude Code — é o único cliente OAuth aceito
 // pelo endpoint de uso. Sem isso, o token não é válido em /api/oauth/usage.
-struct OAuthService {
+public struct OAuthService {
   static let clientID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
   static let redirectURI = "https://platform.claude.com/oauth/code/callback"
   static let authorizeBase = "https://claude.com/cai/oauth/authorize"
@@ -40,11 +48,11 @@ struct OAuthService {
 
   private let session: URLSession
 
-  init(session: URLSession = .shared) {
+  public init(session: URLSession = .shared) {
     self.session = session
   }
 
-  func makeChallenge() -> OAuthChallenge {
+  public func makeChallenge() -> OAuthChallenge {
     let verifier = Self.randomURLSafe(byteCount: 32)
     let state = Self.randomHex(byteCount: 32)
     let challenge = Self.codeChallenge(for: verifier)
@@ -64,7 +72,7 @@ struct OAuthService {
     return OAuthChallenge(verifier: verifier, state: state, authorizeURL: components.url!)
   }
 
-  func exchange(pastedCode: String, challenge: OAuthChallenge) async throws -> OAuthTokens {
+  public func exchange(pastedCode: String, challenge: OAuthChallenge) async throws -> OAuthTokens {
     let trimmed = pastedCode.trimmingCharacters(in: .whitespacesAndNewlines)
     let parts = trimmed.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
     guard let first = parts.first, !first.isEmpty else { throw OAuthError.invalidPastedCode }
@@ -90,7 +98,7 @@ struct OAuthService {
     return try await performTokenRequest(request)
   }
 
-  func refresh(refreshToken: String) async throws -> OAuthTokens {
+  public func refresh(refreshToken: String) async throws -> OAuthTokens {
     var request = URLRequest(url: Self.tokenURL)
     request.httpMethod = "POST"
     request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -154,9 +162,12 @@ struct OAuthService {
     randomData(byteCount: byteCount).map { String(format: "%02x", $0) }.joined()
   }
 
+  // SystemRandomNumberGenerator é criptograficamente seguro em todas as
+  // plataformas (getrandom/arc4random) — vale pro verifier/state do PKCE. Usado
+  // no lugar do SecRandomCopyBytes pra não depender do Security (ausente no Linux).
   private static func randomData(byteCount: Int) -> Data {
-    var bytes = [UInt8](repeating: 0, count: byteCount)
-    _ = SecRandomCopyBytes(kSecRandomDefault, byteCount, &bytes)
+    var generator = SystemRandomNumberGenerator()
+    let bytes = (0..<byteCount).map { _ in UInt8.random(in: .min ... .max, using: &generator) }
     return Data(bytes)
   }
 

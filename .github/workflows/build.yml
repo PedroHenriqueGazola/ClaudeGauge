@@ -6,9 +6,19 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-macos:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+
+  build-linux:
+    runs-on: ubuntu-24.04
+    container: swift:6.1-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: apt-get update && apt-get install -y libayatana-appindicator3-dev libnotify-dev
       - name: Build
         run: swift build
