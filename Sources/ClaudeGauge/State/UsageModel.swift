@@ -104,11 +104,6 @@ final class UsageModel {
   // auto-limita a cada 10min por período. Trocar o período (force) cancela o
   // cálculo anterior — o skeleton aparece enquanto o novo não chega.
   func refreshSpend(periodDays: Int, force: Bool = false) {
-    if ProcessInfo.processInfo.environment["CLAUDEGAUGE_DEMO"] != nil {
-      spendReport = .demo(windowDays: periodDays)
-      isComputingSpend = false
-      return
-    }
     if !force && spendReport?.windowDays == periodDays && Date() < nextAllowedSpendRefresh {
       return
     }
