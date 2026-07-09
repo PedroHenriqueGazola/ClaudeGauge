@@ -11,8 +11,14 @@ App de **menu bar (macOS)** / **bandeja (Linux)** que mostra o uso do seu Claude
 ## Screenshots
 
 <p>
-  <img src="docs/popover.png" alt="Aba Uso do ClaudeGauge" width="300">
-  <img src="docs/settings.png" alt="Configurações do ClaudeGauge" width="300">
+  <img src="docs/popover.png" alt="Aba Uso do ClaudeGauge" width="280">
+  <img src="docs/gastos.png" alt="Aba Gastos do ClaudeGauge" width="280">
+</p>
+
+<sub>Aba Uso (limites + sessões) e aba Gastos (dados de exemplo).</sub>
+
+<p>
+  <img src="docs/settings.png" alt="Configurações do ClaudeGauge" width="280">
 </p>
 
 Na barra do sistema:
