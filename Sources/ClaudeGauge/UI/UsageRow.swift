@@ -23,6 +23,46 @@ func elapsedText(since date: Date) -> String {
   return "\(minutes / 60)h"
 }
 
+func formatCost(_ value: Double) -> String {
+  if value <= 0 { return "$0" }
+  if value < 0.01 { return "<$0.01" }
+  return String(format: "$%.2f", value)
+}
+
+func formatTokens(_ count: Int) -> String {
+  let value = Double(count)
+  if value >= 1_000_000_000 { return String(format: "%.1fB", value / 1_000_000_000) }
+  if value >= 1_000_000 { return String(format: "%.0fM", value / 1_000_000) }
+  if value >= 1_000 { return String(format: "%.0fK", value / 1_000) }
+  return "\(count)"
+}
+
+// Mostra o custo estimado em destaque e os tokens como detalhe secundário —
+// tokens crus enganam (cache read é volumoso mas barato), o $ pondera os tipos.
+struct SpendRow: View {
+  let entry: SpendEntry
+
+  var body: some View {
+    HStack(spacing: 9) {
+      Text(entry.name)
+        .font(.system(size: 12.5, weight: .medium))
+        .foregroundStyle(Palette.textPrimary)
+        .lineLimit(1)
+      Spacer(minLength: 8)
+      VStack(alignment: .trailing, spacing: 1) {
+        Text(formatCost(entry.estimatedCost))
+          .font(.system(size: 12.5, weight: .semibold))
+          .monospacedDigit()
+          .foregroundStyle(Palette.claudeOrange)
+        Text("\(formatTokens(entry.totalTokens)) tok")
+          .font(.system(size: 10))
+          .monospacedDigit()
+          .foregroundStyle(Palette.textMuted)
+      }
+    }
+  }
+}
+
 struct SessionRow: View {
   let session: ClaudeSessionState
 
@@ -67,6 +107,43 @@ struct SessionRow: View {
     case .working: return "trabalhando"
     case .idle: return "ociosa"
     }
+  }
+}
+
+// Placeholder pulsante enquanto a agregação de gastos roda em background.
+struct SpendSkeleton: View {
+  @State private var pulse = false
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 18) {
+      group()
+      group()
+    }
+    .opacity(pulse ? 0.4 : 0.85)
+    .onAppear {
+      withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+        pulse = true
+      }
+    }
+  }
+
+  private func group() -> some View {
+    VStack(alignment: .leading, spacing: 12) {
+      bar(width: 62, height: 10)
+      ForEach(0..<3, id: \.self) { _ in
+        HStack {
+          bar(width: 120, height: 12)
+          Spacer()
+          bar(width: 52, height: 12)
+        }
+      }
+    }
+  }
+
+  private func bar(width: CGFloat, height: CGFloat) -> some View {
+    RoundedRectangle(cornerRadius: 4, style: .continuous)
+      .fill(Palette.track)
+      .frame(width: width, height: height)
   }
 }
 
