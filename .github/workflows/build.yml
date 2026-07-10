@@ -22,3 +22,14 @@ jobs:
         run: apt-get update && apt-get install -y libayatana-appindicator3-dev libnotify-dev
       - name: Build
         run: swift build
+
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: compnerd/gha-setup-swift@v0.4.0
+        with:
+          branch: swift-6.1-release
+          tag: 6.1-RELEASE
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build

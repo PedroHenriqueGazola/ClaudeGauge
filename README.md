@@ -1,6 +1,6 @@
 # ClaudeGauge
 
-App de **menu bar (macOS)** / **bandeja (Linux)** que mostra o uso do seu Claude direto na barra do sistema — limites, sessões abertas e uma estimativa de custo por modelo e por projeto — sem precisar abrir `claude.ai/settings/usage` toda hora.
+App de **menu bar (macOS)** / **bandeja (Linux e Windows)** que mostra o uso do seu Claude direto na barra do sistema — limites, sessões abertas e uma estimativa de custo por modelo e por projeto — sem precisar abrir `claude.ai/settings/usage` toda hora.
 
 - **Na barra:** os dois limites de relance (`5h 5% ▬ · 4h49 · 7d 1% ▬`), com cor só na barra, o countdown do reset da janela de 5h, e texto que se adapta ao fundo claro/escuro.
 - **Aba Uso:** sessão (5h), semanal, Opus e Sonnet — cada um com % em destaque, barra e countdown até o reset — mais as **sessões do Claude Code abertas** (trabalhando / esperando você / ociosa).
@@ -27,7 +27,7 @@ Na barra do sistema:
 
 ## Requisitos
 
-- **macOS 14** (Sonoma) ou superior, **ou Linux** com bandeja de sistema (veja [Linux](#linux))
+- **macOS 14** (Sonoma) ou superior, **ou Linux** com bandeja de sistema (veja [Linux](#linux)), **ou Windows 10/11** (veja [Windows](#windows))
 - Uma conta Claude (Pro / Max / Team)
 
 ## Instalação (macOS)
@@ -80,6 +80,20 @@ claudegauge
 O login OAuth próprio (pra quem não usa o Claude Code) é pelo terminal: `claudegauge login`. O token fica em `~/.local/share/claudegauge/tokens.json` com permissão `600` — o mesmo modelo do `~/.claude/.credentials.json` do próprio Claude Code. Pra desconectar: `claudegauge logout` ou "Sair da conta" no menu.
 
 > **GNOME puro** não mostra ícones de bandeja por padrão — instale a extensão [AppIndicator Support](https://extensions.gnome.org/extension/615/appindicator-support/). KDE, XFCE, Cinnamon e afins funcionam de fábrica. No **WSLg** o suporte a bandeja é limitado e o ícone pode não aparecer.
+
+## Windows
+
+No Windows o app vira um ícone de bandeja com os mesmos dados do menu Linux: % de cada janela e countdown no menu, `5h X% · 7d Y%` no tooltip do ícone, notificações e configurações. Requer o [toolchain Swift pra Windows](https://www.swift.org/install/windows/) (winget: `Microsoft.VisualStudio.2022.BuildTools` com MSVC + Windows SDK, e `Swift.Toolchain`).
+
+Compilar e instalar (exe em `%LOCALAPPDATA%\Programs\ClaudeGauge`, ícones em `%APPDATA%\ClaudeGauge`):
+
+```powershell
+git clone https://github.com/PedroHenriqueGazola/ClaudeGauge.git
+cd ClaudeGauge
+powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
+```
+
+O login OAuth próprio (pra quem não usa o Claude Code) é pelo terminal: `claudegauge login`. O token fica em `%APPDATA%\ClaudeGauge\tokens.json` — o mesmo modelo do `%USERPROFILE%\.claude\.credentials.json` do próprio Claude Code, que o app reaproveita automaticamente se existir. Pra desconectar: `claudegauge logout` ou "Sair da conta" no menu. "Abrir no login" usa a chave `Run` do registro do usuário.
 
 ## Autenticação
 

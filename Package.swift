@@ -11,7 +11,9 @@ let package = Package(
     .target(
       name: "ClaudeGaugeCore",
       dependencies: [
-        .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux]))
+        .product(
+          name: "Crypto", package: "swift-crypto",
+          condition: .when(platforms: [.linux, .windows]))
       ],
       path: "Sources/ClaudeGaugeCore"
     )
@@ -24,6 +26,17 @@ let package = Package(
       name: "ClaudeGauge",
       dependencies: ["ClaudeGaugeCore"],
       path: "Sources/ClaudeGauge"
+    )
+  )
+#elseif os(Windows)
+  package.targets.append(
+    .executableTarget(
+      name: "claudegauge",
+      dependencies: ["ClaudeGaugeCore"],
+      path: "Sources/ClaudeGaugeWindows",
+      linkerSettings: [
+        .unsafeFlags(["-Xlinker", "/SUBSYSTEM:WINDOWS", "-Xlinker", "/ENTRY:mainCRTStartup"])
+      ]
     )
   )
 #else
