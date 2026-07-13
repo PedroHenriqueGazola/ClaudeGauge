@@ -22,7 +22,11 @@ enum LoginCommand {
 
     do {
       let tokens = try await service.exchange(pastedCode: pasted, challenge: challenge)
-      FileTokenStore().save(tokens)
+      let store = FileTokenStore()
+      var stored = store.load()
+      let id = stored.upsert(tokens, id: UUID().uuidString)
+      stored.activeId = id
+      store.save(stored)
       print("Conectado (plano \(tokens.subscriptionType?.capitalized ?? "ativo")).")
     } catch {
       print((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
@@ -31,8 +35,8 @@ enum LoginCommand {
   }
 
   static func logout() {
-    FileTokenStore().clear()
-    print("Conta desconectada.")
+    FileTokenStore().save(StoredAccounts())
+    print("Contas desconectadas.")
   }
 
   private static func openBrowser(_ url: URL) {

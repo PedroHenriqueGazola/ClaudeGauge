@@ -54,7 +54,9 @@ final class AuthProvider {
   }
 
   private func appTokenAuth() async throws -> (ResolvedAuth, Date)? {
-    guard let tokens = tokenStore.load() else { return nil }
+    var stored = tokenStore.load()
+    guard let account = stored.activeAccount else { return nil }
+    let tokens = account.tokens
     if !tokens.isExpired {
       return (resolved(from: tokens), validUntil(for: tokens))
     }
@@ -68,8 +70,11 @@ final class AuthProvider {
       refreshToken: refreshed.refreshToken ?? tokens.refreshToken,
       expiresAt: refreshed.expiresAt,
       subscriptionType: refreshed.subscriptionType ?? tokens.subscriptionType,
-      scopes: refreshed.scopes ?? tokens.scopes)
-    tokenStore.save(merged)
+      scopes: refreshed.scopes ?? tokens.scopes,
+      organizationId: refreshed.organizationId ?? tokens.organizationId,
+      organizationName: refreshed.organizationName ?? tokens.organizationName)
+    stored.updateTokens(id: account.id, merged)
+    tokenStore.save(stored)
 
     return (resolved(from: merged), validUntil(for: merged))
   }

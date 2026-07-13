@@ -360,10 +360,10 @@ final class TrayApp {
   }
 
   private func updateAccount() {
-    if let tokens = FileTokenStore().load() {
+    if let account = FileTokenStore().load().activeAccount {
       gtk_menu_item_set_label(
         gtkCast(accountItem, to: GtkMenuItem.self),
-        "Conectado via login do app (\(tokens.subscriptionType?.capitalized ?? "ativo"))")
+        "Conectado via login do app (\(account.tokens.subscriptionType?.capitalized ?? "ativo"))")
       gtk_menu_item_set_label(gtkCast(loginItem, to: GtkMenuItem.self), "Sair da conta")
     } else if CredentialsReader().read() != nil {
       gtk_menu_item_set_label(
@@ -377,9 +377,11 @@ final class TrayApp {
   }
 
   private func handleAccountAction() {
-    let tokenStore = FileTokenStore()
-    if tokenStore.load() != nil {
-      tokenStore.clear()
+    let store = FileTokenStore()
+    var stored = store.load()
+    if let id = stored.activeAccount?.id {
+      stored.remove(id: id)
+      store.save(stored)
       updateAccount()
       triggerRefresh(force: true)
     } else {

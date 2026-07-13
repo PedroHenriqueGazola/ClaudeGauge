@@ -25,9 +25,9 @@ final class LoginModel {
   private var challenge: OAuthChallenge?
 
   init() {
-    let tokens = KeychainTokenStore().load()
-    isLoggedIn = tokens != nil
-    accountPlan = tokens?.subscriptionType
+    let stored = KeychainTokenStore().load()
+    isLoggedIn = !stored.accounts.isEmpty
+    accountPlan = stored.activeAccount?.tokens.subscriptionType
   }
 
   func startLogin() {
@@ -46,7 +46,10 @@ final class LoginModel {
     phase = .exchanging
     do {
       let tokens = try await oauthService.exchange(pastedCode: pastedCode, challenge: challenge)
-      tokenStore.save(tokens)
+      var stored = tokenStore.load()
+      let id = stored.upsert(tokens, id: UUID().uuidString)
+      stored.activeId = id
+      tokenStore.save(stored)
       isLoggedIn = true
       accountPlan = tokens.subscriptionType
       pastedCode = ""
@@ -65,9 +68,11 @@ final class LoginModel {
   }
 
   func logout() {
-    tokenStore.clear()
-    isLoggedIn = false
-    accountPlan = nil
+    var stored = tokenStore.load()
+    if let id = stored.activeAccount?.id { stored.remove(id: id) }
+    tokenStore.save(stored)
+    isLoggedIn = !stored.accounts.isEmpty
+    accountPlan = stored.activeAccount?.tokens.subscriptionType
     phase = .idle
     Task { await UsageModel.shared.refresh(force: true) }
   }

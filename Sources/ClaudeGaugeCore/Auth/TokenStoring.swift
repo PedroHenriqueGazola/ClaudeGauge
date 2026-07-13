@@ -1,7 +1,7 @@
 import Foundation
 
+// Guarda o conjunto de contas conectadas (uma por organização) + qual é a ativa.
 public protocol TokenStoring {
-  func load() -> OAuthTokens?
-  func save(_ tokens: OAuthTokens)
-  func clear()
+  func load() -> StoredAccounts
+  func save(_ accounts: StoredAccounts)
 }

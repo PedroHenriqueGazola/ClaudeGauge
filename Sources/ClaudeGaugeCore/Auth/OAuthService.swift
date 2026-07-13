@@ -128,19 +128,20 @@ public struct OAuthService {
     let scopes = (root["scope"] as? String)?
       .split(separator: " ")
       .map(String.init)
+    let organization = root["organization"] as? [String: Any]
 
     return OAuthTokens(
       accessToken: accessToken,
       refreshToken: root["refresh_token"] as? String,
       expiresAt: expiresAt,
-      subscriptionType: subscription(from: root),
-      scopes: scopes)
+      subscriptionType: subscription(from: organization),
+      scopes: scopes,
+      organizationId: organization?["uuid"] as? String,
+      organizationName: organization?["name"] as? String)
   }
 
-  private func subscription(from root: [String: Any]) -> String? {
-    guard let organization = root["organization"] as? [String: Any],
-      let type = organization["organization_type"] as? String
-    else { return nil }
+  private func subscription(from organization: [String: Any]?) -> String? {
+    guard let type = organization?["organization_type"] as? String else { return nil }
     let mapping = [
       "claude_max": "max",
       "claude_pro": "pro",
