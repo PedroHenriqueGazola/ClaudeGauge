@@ -1,4 +1,5 @@
 import AppKit
+import ClaudeGaugeCore
 import ServiceManagement
 import SwiftUI
 import UserNotifications
@@ -78,6 +79,7 @@ struct SettingsView: View {
     .onAppear {
       launchAtLogin = SMAppService.mainApp.status == .enabled
       refreshNotificationStatus()
+      Task { await model.refresh() }
     }
   }
 
@@ -110,32 +112,45 @@ struct SettingsView: View {
 
   @ViewBuilder
   private func accountSection(_ login: LoginModel) -> some View {
-    if login.isLoggedIn {
-      loggedInView(login)
-    } else {
-      loggedOutView(login)
+    ForEach(model.accounts) { account in
+      accountRow(account)
+    }
+    loginControl(login)
+  }
+
+  @ViewBuilder
+  private func accountRow(_ account: AccountUsage) -> some View {
+    let isActive = account.id == model.activeAccountId
+    LabeledContent {
+      HStack(spacing: 12) {
+        if isActive {
+          Text("na barra").font(.caption).foregroundStyle(.secondary)
+        } else {
+          Button("Usar na barra") { model.setActiveAccount(account.id) }
+            .buttonStyle(.borderless).font(.caption)
+        }
+        Button("Remover", role: .destructive) { model.removeAccount(account.id) }
+          .buttonStyle(.borderless).font(.caption)
+      }
+    } label: {
+      Text(account.organizationName ?? account.subscriptionType?.capitalized ?? "Conta Claude")
     }
   }
 
   @ViewBuilder
-  private func loggedInView(_ login: LoginModel) -> some View {
-    LabeledContent("Conectado via login do app") {
-      Text(login.accountPlan?.capitalized ?? "ativo")
-        .foregroundStyle(.secondary)
-    }
-    Button("Sair da conta", role: .destructive) { login.logout() }
-  }
-
-  @ViewBuilder
-  private func loggedOutView(_ login: LoginModel) -> some View {
+  private func loginControl(_ login: LoginModel) -> some View {
     switch login.phase {
     case .idle, .failed:
-      Text("Sem login próprio: usando o Claude Code, se disponível. Para conectar outra conta:")
-        .font(.caption)
-        .foregroundStyle(.secondary)
-      Button("Entrar com Claude") { login.startLogin() }
+      Button(model.accounts.isEmpty ? "Entrar com Claude" : "Adicionar outra conta") {
+        login.startLogin()
+      }
       if case .failed(let message) = login.phase {
         Text(message).font(.caption).foregroundStyle(.red)
+      }
+      if model.accounts.isEmpty {
+        Text("Sem login próprio: o app usa o Claude Code, se disponível.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
       }
     case .awaitingCode:
       awaitingCodeView(login)

@@ -181,7 +181,7 @@ struct PopoverView: View {
   }
 
   private var reauthBanner: some View {
-    let hasAccount = LoginModel.shared.isLoggedIn
+    let hasAccount = !model.accounts.isEmpty
     return VStack(alignment: .leading, spacing: 8) {
       Label(
         hasAccount ? "Login expirou" : "Nenhuma conta conectada",

@@ -24,11 +24,17 @@ struct KeychainTokenStore: TokenStoring {
 
   func save(_ accounts: StoredAccounts) {
     guard let data = accounts.jsonData() else { return }
-    delete(Self.accountsKey)
-    var attributes = identity(Self.accountsKey)
-    attributes[kSecValueData as String] = data
-    attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-    SecItemAdd(attributes as CFDictionary, nil)
+    // Atualiza in-place quando o item já existe — recriar (delete+add) resetaria
+    // a ACL do Keychain e faria o macOS repedir a senha a cada gravação.
+    let update = [kSecValueData as String: data]
+    let status = SecItemUpdate(identity(Self.accountsKey) as CFDictionary, update as CFDictionary)
+    if status == errSecItemNotFound {
+      var attributes = identity(Self.accountsKey)
+      attributes[kSecValueData as String] = data
+      attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+      SecItemAdd(attributes as CFDictionary, nil)
+    }
+    delete(Self.legacyKey)
   }
 
   private func read(_ account: String) -> Data? {
