@@ -15,8 +15,11 @@ final class UsageModel {
   private(set) var isRefreshing = false
   private(set) var isStale = false
   private(set) var needsReauth = false
+  private(set) var accounts: [AccountUsage] = []
+  private(set) var activeAccountId: String?
 
   private let engine = UsageEngine(tokenStore: KeychainTokenStore())
+  private let tokenStore = KeychainTokenStore()
   private let notifier = NotificationCenterService()
   let sessionRegistry: SessionRegistry
   private var timer: Timer?
@@ -96,9 +99,27 @@ final class UsageModel {
     errorMessage = result.errorMessage
     isStale = result.isStale
     needsReauth = result.needsReauth
+    accounts = result.accounts
+    activeAccountId = result.activeId
     if result.errorMessage == nil, let snapshot = result.snapshot {
       notifier.evaluate(snapshot: snapshot)
     }
+  }
+
+  func setActiveAccount(_ id: String) {
+    var stored = tokenStore.load()
+    guard stored.account(id: id) != nil, stored.activeId != id else { return }
+    stored.activeId = id
+    tokenStore.save(stored)
+    activeAccountId = id
+    Task { await refresh(force: true) }
+  }
+
+  func removeAccount(_ id: String) {
+    var stored = tokenStore.load()
+    stored.remove(id: id)
+    tokenStore.save(stored)
+    Task { await refresh(force: true) }
   }
 
   // Agrega os transcripts locais (custo/tokens por modelo e por projeto) na

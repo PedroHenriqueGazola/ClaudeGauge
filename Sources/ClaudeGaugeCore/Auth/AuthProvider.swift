@@ -1,8 +1,15 @@
 import Foundation
 
-struct ResolvedAuth {
-  let accessToken: String
-  let subscriptionType: String?
+public struct ResolvedAccount: Sendable {
+  public let id: String
+  public let organizationName: String?
+  public let subscriptionType: String?
+  public let accessToken: String
+}
+
+public struct ResolvedAccounts: Sendable {
+  public let accounts: [ResolvedAccount]
+  public let activeId: String?
 }
 
 enum AuthError: LocalizedError {
@@ -21,51 +28,48 @@ final class AuthProvider {
   private let oauthService = OAuthService()
   private let tokenStore: TokenStoring
 
-  private var cachedAuth: ResolvedAuth?
-  private var cacheValidUntil: Date = .distantPast
-
-  private let fallbackCacheWindow: TimeInterval = 15 * 60
-
   init(tokenStore: TokenStoring) {
     self.tokenStore = tokenStore
   }
 
-  func currentAuth() async throws -> ResolvedAuth {
-    if let cachedAuth, Date() < cacheValidUntil {
-      return cachedAuth
-    }
-    let (auth, validUntil) = try await resolve()
-    cachedAuth = auth
-    cacheValidUntil = validUntil
-    return auth
-  }
-
-  func invalidate() {
-    cachedAuth = nil
-    cacheValidUntil = .distantPast
-  }
-
-  private func resolve() async throws -> (ResolvedAuth, Date) {
-    if let appAuth = try await appTokenAuth() {
-      return appAuth
-    }
-    let auth = try claudeCodeAuth()
-    return (auth, Date().addingTimeInterval(fallbackCacheWindow))
-  }
-
-  private func appTokenAuth() async throws -> (ResolvedAuth, Date)? {
+  // Resolve todas as contas conectadas, renovando tokens expirados e salvando de
+  // volta. Sem contas no app, cai no token do Claude Code (uma conta implícita).
+  func currentAccounts() async -> ResolvedAccounts {
     var stored = tokenStore.load()
-    guard let account = stored.activeAccount else { return nil }
-    let tokens = account.tokens
-    if !tokens.isExpired {
-      return (resolved(from: tokens), validUntil(for: tokens))
-    }
-    guard let refreshToken = tokens.refreshToken else {
-      return (resolved(from: tokens), Date().addingTimeInterval(fallbackCacheWindow))
+
+    if stored.accounts.isEmpty {
+      guard let credentials = credentialsReader.read() else {
+        return ResolvedAccounts(accounts: [], activeId: nil)
+      }
+      let fallback = ResolvedAccount(
+        id: "claude-code", organizationName: nil,
+        subscriptionType: credentials.subscriptionType, accessToken: credentials.accessToken)
+      return ResolvedAccounts(accounts: [fallback], activeId: fallback.id)
     }
 
-    let refreshed = try await oauthService.refresh(refreshToken: refreshToken)
-    let merged = OAuthTokens(
+    var resolved: [ResolvedAccount] = []
+    var didRefresh = false
+    for account in stored.accounts {
+      var tokens = account.tokens
+      if tokens.isExpired, let refreshToken = tokens.refreshToken,
+        let refreshed = try? await oauthService.refresh(refreshToken: refreshToken)
+      {
+        tokens = merge(tokens, with: refreshed)
+        stored.updateTokens(id: account.id, tokens)
+        didRefresh = true
+      }
+      resolved.append(
+        ResolvedAccount(
+          id: account.id, organizationName: tokens.organizationName,
+          subscriptionType: tokens.subscriptionType, accessToken: tokens.accessToken))
+    }
+    if didRefresh { tokenStore.save(stored) }
+
+    return ResolvedAccounts(accounts: resolved, activeId: stored.activeAccount?.id)
+  }
+
+  private func merge(_ tokens: OAuthTokens, with refreshed: OAuthTokens) -> OAuthTokens {
+    OAuthTokens(
       accessToken: refreshed.accessToken,
       refreshToken: refreshed.refreshToken ?? tokens.refreshToken,
       expiresAt: refreshed.expiresAt,
@@ -73,26 +77,5 @@ final class AuthProvider {
       scopes: refreshed.scopes ?? tokens.scopes,
       organizationId: refreshed.organizationId ?? tokens.organizationId,
       organizationName: refreshed.organizationName ?? tokens.organizationName)
-    stored.updateTokens(id: account.id, merged)
-    tokenStore.save(stored)
-
-    return (resolved(from: merged), validUntil(for: merged))
-  }
-
-  private func claudeCodeAuth() throws -> ResolvedAuth {
-    guard let credentials = credentialsReader.read() else {
-      throw AuthError.noAccount
-    }
-    return ResolvedAuth(
-      accessToken: credentials.accessToken,
-      subscriptionType: credentials.subscriptionType)
-  }
-
-  private func resolved(from tokens: OAuthTokens) -> ResolvedAuth {
-    ResolvedAuth(accessToken: tokens.accessToken, subscriptionType: tokens.subscriptionType)
-  }
-
-  private func validUntil(for tokens: OAuthTokens) -> Date {
-    tokens.expiresAt?.addingTimeInterval(-300) ?? Date().addingTimeInterval(fallbackCacheWindow)
   }
 }

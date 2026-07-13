@@ -1,6 +1,6 @@
 import Foundation
 
-public struct UsageWindow: Equatable {
+public struct UsageWindow: Equatable, Sendable {
   public let percent: Double
   public let resetsAt: Date?
 
@@ -10,7 +10,7 @@ public struct UsageWindow: Equatable {
   }
 }
 
-public struct ExtraUsage: Equatable {
+public struct ExtraUsage: Equatable, Sendable {
   public let isEnabled: Bool
   public let usedCredits: Double?
   public let monthlyLimit: Double?
@@ -24,7 +24,7 @@ public struct ExtraUsage: Equatable {
   }
 }
 
-public struct UsageSnapshot: Equatable {
+public struct UsageSnapshot: Equatable, Sendable {
   public let fiveHour: UsageWindow?
   public let sevenDay: UsageWindow?
   public let opusWeekly: UsageWindow?

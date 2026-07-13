@@ -104,8 +104,55 @@ struct PopoverView: View {
 
   @ViewBuilder
   private var usageTab: some View {
-    content
+    if model.accounts.count > 1 {
+      accountsUsage
+    } else {
+      content
+    }
     sessionsSection
+  }
+
+  private var accountsUsage: some View {
+    VStack(spacing: 0) {
+      ForEach(Array(model.accounts.enumerated()), id: \.element.id) { index, account in
+        if index > 0 { Rectangle().fill(Palette.divider).frame(height: 1) }
+        accountBlock(account)
+      }
+    }
+  }
+
+  private func accountBlock(_ account: AccountUsage) -> some View {
+    let isActive = account.id == model.activeAccountId
+    return VStack(alignment: .leading, spacing: 14) {
+      Button { model.setActiveAccount(account.id) } label: {
+        HStack(spacing: 8) {
+          Circle()
+            .fill(isActive ? Palette.claudeOrange : Palette.textMuted)
+            .frame(width: 7, height: 7)
+          Text(account.organizationName ?? account.subscriptionType?.capitalized ?? "Conta Claude")
+            .font(.system(size: 12.5, weight: .semibold))
+            .foregroundStyle(Palette.textPrimary)
+            .lineLimit(1)
+          Spacer(minLength: 8)
+          Text(isActive ? "na barra" : "usar na barra")
+            .font(.system(size: 10))
+            .foregroundStyle(isActive ? Palette.textMuted : Palette.claudeOrange)
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+
+      if let snapshot = account.snapshot {
+        metrics(snapshot)
+      } else {
+        Text(account.errorMessage ?? "sem dados")
+          .font(.system(size: 11))
+          .foregroundStyle(Palette.amber)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 14)
   }
 
   @ViewBuilder
