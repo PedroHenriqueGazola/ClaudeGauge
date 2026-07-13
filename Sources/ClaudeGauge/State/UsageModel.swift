@@ -14,6 +14,7 @@ final class UsageModel {
   private(set) var errorMessage: String?
   private(set) var isRefreshing = false
   private(set) var isStale = false
+  private(set) var needsReauth = false
 
   private let engine = UsageEngine(tokenStore: KeychainTokenStore())
   private let notifier = NotificationCenterService()
@@ -94,6 +95,7 @@ final class UsageModel {
     snapshot = result.snapshot
     errorMessage = result.errorMessage
     isStale = result.isStale
+    needsReauth = result.needsReauth
     if result.errorMessage == nil, let snapshot = result.snapshot {
       notifier.evaluate(snapshot: snapshot)
     }

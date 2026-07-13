@@ -110,7 +110,12 @@ struct PopoverView: View {
 
   @ViewBuilder
   private var content: some View {
-    if let snapshot = model.snapshot {
+    if model.needsReauth {
+      reauthBanner
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 14)
+    } else if let snapshot = model.snapshot {
       metrics(snapshot)
         .padding(.horizontal, 16)
         .padding(.top, 14)
@@ -126,6 +131,31 @@ struct PopoverView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
     }
+  }
+
+  private var reauthBanner: some View {
+    let hasAccount = LoginModel.shared.isLoggedIn
+    return VStack(alignment: .leading, spacing: 8) {
+      Label(
+        hasAccount ? "Login expirou" : "Nenhuma conta conectada",
+        systemImage: "person.crop.circle.badge.exclamationmark"
+      )
+      .font(.system(size: 13, weight: .medium))
+      .foregroundStyle(Palette.amber)
+      Text(
+        hasAccount
+          ? "Não consegui renovar a sessão. Reconecte pra ver o uso atualizado."
+          : "Entre com sua conta Claude pra acompanhar o uso."
+      )
+      .font(.system(size: 12))
+      .foregroundStyle(Palette.textSecondary)
+      .fixedSize(horizontal: false, vertical: true)
+      Button(hasAccount ? "Reconectar" : "Entrar com Claude") { openSettingsWindow() }
+        .buttonStyle(.plain)
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(Palette.claudeOrange)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   private func metrics(_ snapshot: UsageSnapshot) -> some View {
@@ -352,6 +382,7 @@ struct PopoverView: View {
       }
       return model.isComputingSpend ? "calculando…" : ""
     }
+    if model.needsReauth { return "sem conexão com a conta" }
     guard let updated = model.snapshot?.lastUpdated else {
       return model.isRefreshing ? "atualizando…" : ""
     }

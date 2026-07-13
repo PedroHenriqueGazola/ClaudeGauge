@@ -4,6 +4,7 @@ public struct UsageRefreshResult {
   public let snapshot: UsageSnapshot?
   public let errorMessage: String?
   public let isStale: Bool
+  public let needsReauth: Bool
 }
 
 public actor UsageEngine {
@@ -32,21 +33,28 @@ public actor UsageEngine {
       snapshot = fetched
       nextAllowedFetch = Date().addingTimeInterval(30)
       logDebug(fetched)
-      return UsageRefreshResult(snapshot: fetched, errorMessage: nil, isStale: false)
+      return UsageRefreshResult(
+        snapshot: fetched, errorMessage: nil, isStale: false, needsReauth: false)
     } catch {
       return handle(error)
     }
   }
 
   private func handle(_ error: Error) -> UsageRefreshResult {
+    var needsReauth = error is AuthError
     if case UsageAPIError.rateLimited(let retryAfter) = error {
       nextAllowedFetch = Date().addingTimeInterval(retryAfter ?? 300)
     }
     if case UsageAPIError.unauthorized = error {
       authProvider.invalidate()
+      needsReauth = true
     }
     let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-    return UsageRefreshResult(snapshot: snapshot, errorMessage: message, isStale: snapshot != nil)
+    if ProcessInfo.processInfo.environment["CLAUDEGAUGE_DEBUG"] != nil {
+      FileHandle.standardError.write(Data("[ClaudeGauge] refresh falhou: \(message)\n".utf8))
+    }
+    return UsageRefreshResult(
+      snapshot: snapshot, errorMessage: message, isStale: snapshot != nil, needsReauth: needsReauth)
   }
 
   private func logDebug(_ snapshot: UsageSnapshot) {

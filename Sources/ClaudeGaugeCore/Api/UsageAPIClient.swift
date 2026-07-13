@@ -14,7 +14,7 @@ enum UsageAPIError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .unauthorized:
-      return "Sessão do Claude Code expirou. Rode `claude` pra renovar o login."
+      return "Login expirou. Reconecte sua conta em Configurações."
     case .rateLimited:
       return "Muitas requisições. Tentando de novo em instantes."
     case .endpointUnavailable:
