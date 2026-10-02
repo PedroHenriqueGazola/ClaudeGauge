@@ -1,10 +1,8 @@
 ## Novidades
 
-- 👥 **Várias contas / organizações:** conecte mais de uma conta Claude (ex.: duas orgs no mesmo e-mail). A aba **Uso** mostra as duas empilhadas — cada org com seus limites de 5h e semanal — e um toque escolhe qual vai pra **barra de menu**. Adicione/troque/remova em *Configurações → Conta*.
-- 🔑 **Clareza de login:** quando a sessão expira ou não há conta conectada, o app agora mostra um **banner de reconexão** claro (em vez de dados velhos com "desatualizado").
-- 🛠️ **Correção:** o macOS não repede mais a senha do Keychain a cada atualização (o token é gravado preservando a permissão).
+- 🛠️ **Correção:** a notificação "precisa de você" não rouba mais o foco da janela em que você está — o ClaudeGauge recebe o aviso em segundo plano.
 
-No Linux, a bandeja segue a conta ativa.
+Quem usa o aviso "precisa de você" só precisa trocar o app; o hook se ajusta sozinho ao abrir.
 
 ## Instalar (macOS)
 
